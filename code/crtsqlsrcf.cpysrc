@@ -1,0 +1,5 @@
+
+         Dcl-F qafdmbr  Usage(*Input) UsrOpn;
+         Dcl-F qadspffd Usage(*Input);
+         Dcl-F qafdjoin Usage(*Input);
+

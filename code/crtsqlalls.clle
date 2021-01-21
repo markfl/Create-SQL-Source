@@ -1,0 +1,37 @@
+             PGM
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(TPSDTA50)) +
+                          JOB(TPSDTA50) LOGCLPGM(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(OS52RLDTA)) +
+                          JOB(OS52RLDTA) LOGCLPGM(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(TPSDTA50) +
+                          TODATABASE(*ORACLE)) JOB(TPSDTA50) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(OS52RLDTA) +
+                          TODATABASE(*ORACLE)) JOB(OS52RLDTA) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(TPSDTA50) +
+                          TODATABASE(*MYSQL)) JOB(TPSDTA50) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(OS52RLDTA) +
+                          TODATABASE(*MYSQL)) JOB(OS52RLDTA) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(TPSDTA50) +
+                          TODATABASE(*DB2)) JOB(TPSDTA50) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(OS52RLDTA) +
+                          TODATABASE(*DB2)) JOB(OS52RLDTA) +
+                          LOGCLPGM(*YES) HOLD(*YES)
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

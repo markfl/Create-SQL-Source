@@ -1,0 +1,66 @@
+             PGM        PARM(&FROMFILE &SOURCEFILE &SOURCELIB +
+                          &MEMBER &DROPMEMBER &TEXT)
+
+             DCL        VAR(&FROMFILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&SOURCEFILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&SOURCELIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MEMBER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DROPMEMBER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TEXT) TYPE(*CHAR) LEN(50)
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+/* b01 */    IF         COND(&MEMBER *NE *FIRST) THEN(DO)
+/* b02 */    IF         COND(&MEMBER *NE *FILE) THEN(DO)
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) MBR(&MEMBER) +
+                          TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e02 */    ENDDO
+/* b02 */    ELSE       CMD(DO)
+             CHGVAR     VAR(&MEMBER) VALUE(&FROMFILE)
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) MBR(&MEMBER) +
+                          TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e02 */    ENDDO
+/* e01 */    ENDDO
+/* b01 */    ELSE       CMD(DO)
+             RTVMBRD    FILE(&SOURCELIB/&SOURCEFILE) RTNMBR(&MEMBER)
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+/* b02 */    IF         COND(&@MSGID = CPF3019) THEN(DO)
+             CHGVAR     VAR(&MEMBER) VALUE(&SOURCEFILE)
+/* e02 */    ENDDO
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) MBR(&MEMBER) +
+                          TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+/* b01 */    IF         COND(&DROPMEMBER *NE *FIRST) THEN(DO)
+/* b02 */    IF         COND(&DROPMEMBER *NE *FILE) THEN(DO)
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) +
+                          MBR(&DROPMEMBER) TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e02 */    ENDDO
+/* b02 */    ELSE       CMD(DO)
+             CHGVAR     VAR(&DROPMEMBER) VALUE(&FROMFILE)
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) +
+                          MBR(&DROPMEMBER) TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e02 */    ENDDO
+/* e01 */    ENDDO
+/* b01 */    ELSE       CMD(DO)
+             RTVMBRD    FILE(&SOURCELIB/&SOURCEFILE) +
+                          RTNMBR(&DROPMEMBER)
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+/* b02 */    IF         COND(&@MSGID = CPF3019) THEN(DO)
+             CHGVAR     VAR(&DROPMEMBER) VALUE(&SOURCEFILE)
+/* e02 */    ENDDO
+             ADDPFM     FILE(&SOURCELIB/&SOURCEFILE) +
+                          MBR(&DROPMEMBER) TEXT(&TEXT) SRCTYPE(SQL)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

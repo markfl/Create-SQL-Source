@@ -1,0 +1,146 @@
+
+          Clear @Occurances;
+
+b001      For @OccurIdx = 1 To @Occurs;
+
+             %Occur(@FieldsDs) = @OccurIdx;
+             Clear @FieldsDs.@FldIndx;
+             Clear @FieldsDs.@JFldIndx;
+             Clear @FieldsDs.@FileName;
+             Clear @FieldsDs.@FromFile;
+             Clear @FieldsDs.@ToFile;
+             Clear @FieldsDs.@FrJoinField;
+             Clear @FieldsDs.@ToJoinField;
+             Clear @FieldsDs.@FieldName;
+             Clear @FieldsDs.@MapField;
+             Clear @FieldsDs.@Map;
+             Clear @FieldsDs.@Maps;
+             Clear @FieldsDs.@Mapl;
+             Clear @AliasDs.@SSFldName(@occurIdx);
+             Clear @AliasDs.@Alias(@occurIdx);
+
+e001      EndFor;
+          Clear @OccurIdx;
+
+b001      If Not %Open(qafdmbr);
+             Open qafdmbr;
+e001      EndIf;
+
+b001      If  @DataBase = @MSSQL;
+             Read qwhfdmbr;
+b002         If  Not %Eof(qafdmbr);
+e002         EndIf;
+e001      EndIf;
+
+b001      If Not %Open(qadspffd);
+             Open qadspffd;
+e001      EndIf;
+
+b001      If Not %Open(qafdjoin);
+             Open qafdjoin;
+e001      EndIf;
+
+          Read qwhdrffd;
+b001      Dow Not %Eof(qadspffd);
+
+             whfile = ConvertFieldName(whfile: @DataBase: 'FILENAME');
+             whfldi = ConvertFieldName(whfldi: @DataBase: 'FIELDNAME');
+             whflde = ConvertFieldName(whflde: @DataBase: 'FIELDNAME');
+b002         If @FileName = *Blanks;
+                @FileName = whfile;
+e002         EndIf;
+
+b002         If whjref = *Zeros;
+                whjref = 1;
+e002         EndIf;
+
+             %Occur(@FieldsDs) = whjref;
+             @OccurInUse(whjref) = *On;
+             @FieldsDs.@FldIndx += 1;
+b002         If whmap = @Yes;
+                @FieldsDs.@FieldName(@FieldsDs.@FldIndx) = whflde;
+                @FieldsDs.@MapField(@FieldsDs.@FldIndx)  = whfldi;
+x002         Else;
+                @FieldsDs.@FieldName(@FieldsDs.@FldIndx) = whfldi;
+                @FieldsDs.@MapField(@FieldsDs.@FldIndx)  = whflde;
+e002         EndIf;
+             @FieldsDs.@Map(@FieldsDs.@FldIndx ) = whmap;
+             @FieldsDs.@Maps(@FieldsDs.@FldIndx) = whmaps;
+             @FieldsDs.@Mapl(@FieldsDs.@FldIndx) = whmapl;
+
+             @OccurIdx += 1;
+             @File#(@OccurIdx)  = whjref;
+             @Fields(@OccurIdx) = whflde;
+
+             Read qwhdrffd;
+
+e001      EndDo;
+
+          Read qwhfdjn;
+b001      Dow Not %Eof(qafdjoin);
+
+             jndnam = ConvertFieldName(jndnam: @DataBase: 'FILENAME');
+             jnjfnm = ConvertFieldName(jnjfnm: @DataBase: 'FILENAME');
+             jnjtnm = ConvertFieldName(jnjtnm: @DataBase: 'FILENAME');
+             jnjfd1 = ConvertFieldName(jnjfd1: @DataBase: 'FIELDNAME');
+             jnjfd2 = ConvertFieldName(jnjfd2: @DataBase: 'FIELDNAME');
+
+b002         If jndial = *Zeros;
+                jndial = 1;
+e002         EndIf;
+
+b002         For @FilesIdx = 1 to @OccurIdx;
+b003            If  @File#(@FilesIdx) = jndial
+                And @Files(@FilesIdx) = *Blanks;
+b004               If jndnam <> *Blanks;
+                      @Files(@FilesIdx) = jndnam;
+x004               Else;
+                      @Files(@FilesIdx) = @FileName;
+e004               EndIf;
+e003            EndIf;
+e002         EndFor;
+
+b002         If jndial = 1;
+                %Occur(@FieldsDs)   = jndial;
+b003            If jndial = 1;
+                   @FieldsDs.@FileName = jndnam;
+x003            Else;
+b004               If  @DataBase = @MSSQL;
+                      @FieldsDs.@FileName = mbbof;
+x004               Else;
+                      @FieldsDs.@FileName = jnfile;
+e004               EndIf;
+e003            EndIf;
+                @FieldsDs.@FromFile = jnjfnm;
+                @FieldsDs.@ToFile   = jnjtnm;
+b003            If @Occurances = *Zeros;
+                   @Occurances = 1;
+e003            EndIf;
+
+x002         Else;
+
+                %Occur(@FieldsDs)   = jndial;
+                @FieldsDs.@JFldIndx += 1;
+                @FieldsDs.@FileName = jndnam;
+                @FieldsDs.@FromFile = jnjfnm;
+                @FieldsDs.@ToFile   = jnjtnm;
+                @FieldsDs.@FrJoinField(@FieldsDs.@JFldIndx) = jnjfd1;
+                @FieldsDs.@ToJoinField(@FieldsDs.@JFldIndx) = jnjfd2;
+b003            If @Occurances = *Zeros
+                Or @Occurances < jndial;
+                   @Occurances = jndial;
+e003            EndIf;
+
+e002         EndIf;
+
+             Read qwhfdjn;
+e001      EndDo;
+
+b001      If @Occurances = *Zeros;
+             @Occurances = 1;
+e001      EndIf;
+
+          Close qafdmbr;
+          Close qafdjoin;
+          Close qadspffd;
+

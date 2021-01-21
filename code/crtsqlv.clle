@@ -1,0 +1,89 @@
+             PGM        PARM(&FILE &DATABASE &DTABASENAM &ACTION +
+                          &CRTSRCFILE &CRTSRCMBR &CRTDROPMBR +
+                          &IDXSRCFILE &IDXSRCMBR &IDXDROPMBR +
+                          &VEWSRCFILE &VEWSRCMBR &VEWDROPMBR)
+
+             DCLPRCOPT  DFTACTGRP(*NO) ACTGRP(*NEW) BNDDIR(MFLORES)
+
+             DCLF       FILE(QADSPOBJ)
+
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&DATABASE) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&DTABASENAM) TYPE(*CHAR) LEN(15)
+             DCL        VAR(&ACTION) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&CRTSRCFILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&CRTSRCMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&CRTDROPMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&IDXSRCFILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&IDXSRCMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&IDXDROPMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&VEWSRCFILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&VEWSRCMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&VEWDROPMBR) TYPE(*CHAR) LEN(20)
+
+             DCL        VAR(&FROMFILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FROMLIB) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&INCLUDE) TYPE(*LGL)
+             DCL        VAR(&MSGDTA) TYPE(*CHAR) LEN(256)
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+             CHGJOB     SWS(00000000)
+
+             CHGVAR     VAR(&FROMFILE) VALUE(%SST(&FILE 1 10))
+             CHGVAR     VAR(&FROMLIB) VALUE(%SST(&FILE 11 10))
+
+             DLTF       FILE(QTEMP/QADSPOBJ)
+             MONMSG     MSGID(CPF0000)
+
+             CALLPRC    PRC(VALIDATEFILENAME) PARM((&FROMFILE)) +
+                          RTNVAL(&INCLUDE)
+/* b01 */    IF         COND(&INCLUDE) THEN(DO)
+             CHGVAR     VAR(&MSGDTA) VALUE('    Invalid File Name')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA(&MSGDTA) +
+                          TOPGMQ(*PRV) MSGTYPE(*DIAG)
+             SNDPGMMSG  MSGID(CPF0002) MSGF(QCPFMSG) MSGTYPE(*ESCAPE)
+/* e01 */    ENDDO
+
+             CHKOBJ     OBJ(&FROMLIB/&FROMFILE) OBJTYPE(*FILE)
+/* b01 */    MONMSG     MSGID(CPF9801) EXEC(DO)
+             CHGVAR     VAR(&MSGDTA) VALUE('    Invalid File Name')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA(&MSGDTA) +
+                          TOPGMQ(*PRV) MSGTYPE(*DIAG)
+             SNDPGMMSG  MSGID(CPF0002) MSGF(QCPFMSG) MSGTYPE(*ESCAPE)
+/* e01 */    ENDDO
+
+             DLTF       FILE(QTEMP/QADSPOBJ)
+             MONMSG     MSGID(CPF0000)
+
+             DSPOBJD    OBJ(&FROMLIB/&FROMFILE) OBJTYPE(*FILE) +
+                          OUTPUT(*OUTFILE) OUTFILE(QTEMP/QADSPOBJ)
+
+             OVRDBF     FILE(QADSPOBJ) TOFILE(QTEMP/QADSPOBJ)
+
+             RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* b01 */    DOWHILE    COND(&@MSGID *NE CPF0864)
+
+/* b02 */    IF         COND(&ODOBAT *NE PF) THEN(DO)
+             CHGVAR     VAR(&MSGDTA) VALUE('    Invalid File Type. +
+                          Must be a Physical File')
+             SNDPGMMSG  MSGID(CPF9898) MSGF(QCPFMSG) MSGDTA(&MSGDTA) +
+                          TOPGMQ(*PRV) MSGTYPE(*DIAG)
+             SNDPGMMSG  MSGID(CPF0002) MSGF(QCPFMSG) MSGTYPE(*ESCAPE)
+/* e01 */    ENDDO
+
+ AGAIN:      RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* e01 */    ENDDO
+
+             DLTF       FILE(QTEMP/QADSPOBJ)
+             MONMSG     MSGID(CPF0000)
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

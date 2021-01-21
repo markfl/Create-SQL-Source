@@ -1,0 +1,34 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          Dcl-Pi crtsqlsrc7;
+             @DataBase     Char(7);
+             @Action       Char(7);
+             @DataBaseName Char(15);
+             @Drop         Ind;
+          End-Pi;
+
+          /define crtsrcd01
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+b001      If @DataBase = @MSSQL;
+             srcseq = 1;
+             srcdta = 'USE [' + %Trim(@DataBaseName) + ']';
+             Write qsqlsrc @SourceDs;
+b002      // If  @Action <> '*VIEW'
+          // And @Action <> '*INDEX'
+          // Or  @Drop;
+             If  @Drop;
+                srcseq += 1;
+                srcdta = 'go';
+                Write qsqlsrc @SourceDs;
+e002         EndIf;
+e001      EndIf;
+
+          *Inlr = *On;
+          Return;
+

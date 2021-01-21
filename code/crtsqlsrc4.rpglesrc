@@ -1,0 +1,335 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+          Dcl-f qafdselo Usage(*Input);
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          /copy qcpysrc,crtsqlsrcf
+
+          Dcl-Pi crtsqlsrc4;
+             @DataBase Char(7);
+             @#records Packed(10:0);
+             @Inc      Ind Options(*NoPass);
+          End-Pi;
+
+          /define crtsrcd01
+          /define crtsrcd02
+          /define crtsrcd03
+          /define crtsrcd04
+          /define crtsrcd05
+          /define crtsrcd07
+          /define crtsrcd08
+          /define crtsrcd09
+          /define crtsrcd10
+          /define crtsrcd13
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd02
+          /undefine crtsrcd03
+          /undefine crtsrcd04
+          /undefine crtsrcd05
+          /undefine crtsrcd07
+          /undefine crtsrcd08
+          /undefine crtsrcd09
+          /undefine crtsrcd10
+          /undefine crtsrcd13
+          /undefine crtsrcd14
+
+          Dcl-s @a     Packed(3:0) Inz(*Zeros);
+          Dcl-s @b     Packed(3:0) Inz(*Zeros);
+          Dcl-s @Count Packed(5:0) Inz(*Zeros);
+          Dcl-c @Yes               Const('Y');
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+b001      For @a = 1 To @Occurs;
+b002         If @OccurInUse(@a);
+                @b += 1;
+e002         EndIf;
+e001      EndFor;
+          @Occurs = @b;
+
+          Read qwhfdso;
+b001      If not %Eof(qafdselo);
+             @Inc = *On;
+             Reset @Count;
+b002         If @DataBase = @MSSQL;
+                srcseq += .01;
+                srcdat = *Zeros;
+                srcdta = 'go';
+                Write qsqlsrc @SourceDs;
+e002         EndIf;
+             srcseq += .01;
+             srcdat = *Zeros;
+             sofile = ConvertFieldName(sofile: @DataBase: 'FILENAME');
+b002         If @DataBase = @Oracle;
+                srcdta = 'create or replace force view ' + %Trim(sofile);
+x002         Else;
+                srcdta = 'create view ' + %Trim(sofile);
+e002         EndIf;
+             Write qsqlsrc @SourceDs;
+             srcseq += .01;
+b002         If @DataBase = @MSSQL;
+                srcdta = 'with schemabinding as';
+x002         Else;
+                srcdta = 'as';
+e002         EndIf;
+             Write qsqlsrc @SourceDs;
+             srcseq += .01;
+
+             Exec SQL Select Count(*) Into :@Count
+             from qadspffd where whmap = 'Y';
+
+             srcdta = 'Select';
+             Write qsqlsrc @SourceDs;
+
+b002         For @a = 1 To @Occurs;
+b003            If @OccurInUse(@a);
+                   %Occur(@FieldsDs) = @a;
+                   Fields(@FieldsDs: @a : *On : @Occurs: @DataBase: @AliasDs);
+e003            EndIf;
+e002         EndFor;
+
+b002         For @a = 1 To @Occurs;
+b003            If  @OccurInUse(@a);
+b004               If @a > 1;
+                      %Occur(@FieldsDs) = @a;
+b005                  If @a = 2;
+b006                     If @DataBase = @MSSQL;
+                            srcdta = 'from dbo.' + %Trim(@FieldsDs.@FromFile)
+                                                 + ' inner join';
+                            srcdta = %Trim(srcdta) + ' dbo.'
+                                   + @FieldsDs.@ToFile;
+x006                     Else;
+                            srcdta = 'From ' + %Trim(@FieldsDs.@FromFile)
+                                                 + ' inner join';
+                            srcdta = %Trim(srcdta) + ' ' + @FieldsDs.@ToFile;
+e006                     EndIf;
+x005                  Else;
+b006                     If @DataBase = @MSSQL;
+                            srcdta = ' inner join';
+                            srcdta = %Trim(srcdta) + ' dbo.'
+                                   + @FieldsDs.@ToFile;
+x006                     Else;
+                            srcdta = ' inner join';
+                            srcdta = %Trim(srcdta) + ' ' + @FieldsDs.@ToFile;
+e006                     EndIf;
+e005                  EndIf;
+                      srcdta = %Trim(srcdta) + ' on';
+                      Write qsqlsrc @SourceDs;
+
+                      Clear srcdta;
+b005                  For @b = 1 to @FieldsDs.@JFldIndx;
+                         srcdta = ' ' + %Trim(@FieldsDs.@FromFile) + '.'
+                                + %Trim(@FieldsDs.@FrJoinField(@b))
+                                + ' = ' + %Trim(@FieldsDs.@ToFile) + '.'
+                                + @FieldsDs.@ToJoinField(@b);
+b006                     If @b < @FieldsDs.@JFldIndx;
+                            srcdta = ' ' + %Trim(srcdta) + ' And';
+e006                     EndIf;
+                         Write qsqlsrc @SourceDs;
+                         Clear srcdta;
+e005                  EndFor;
+e004               EndIf;
+x003            Else;
+                // Leave;
+e003            EndIf;
+e002         EndFor;
+
+             WhereClause(@DataBase: *On: @Fields: @Files: @AliasDs);
+b002         If @DataBase = @Oracle;
+                OrderByClause(@DataBase);
+e002         EndIf;
+
+x001      Else;
+
+             Exec SQL Select Count(*) Into :@Count
+             from qadspffd where whmap = 'Y';
+b002         If @Count > *Zeros;
+                @Inc = *On;
+b003            If @DataBase = @MSSQL;
+                   srcseq += .01;
+                   srcdat = *Zeros;
+                   srcdta = 'go';
+                   Write qsqlsrc @SourceDs;
+e003            EndIf;
+
+                srcseq += .01;
+                srcdat = *Zeros;
+b003            If @DataBase = @Oracle;
+                   srcdta = 'create or replace force view ' + %Trim(@FileName);
+x003            Else;
+                   srcdta = 'create view ' + %Trim(@FileName);
+e003            EndIf;
+                Write qsqlsrc @SourceDs;
+                Clear srcdta;
+                srcseq += .01;
+b003            If @DataBase = @MSSQL;
+                   srcdta = 'with schemabinding as';
+x003            Else;
+                   srcdta = 'as';
+e003            EndIf;
+                Write qsqlsrc @SourceDs;
+                srcseq += .01;
+                srcdta = 'Select';
+                Write qsqlsrc @SourceDs;
+                Clear srcdta;
+
+b003            For @a = 1 To @Occurs;
+b004               If @OccurInUse(@a);
+                      %Occur(@FieldsDs) = @a;
+                      Fields(@FieldsDs: @a : *On : @Occurs:
+                             @DataBase: @AliasDs);
+x004               Else;
+                   // Leave;
+e004               EndIf;
+e003            EndFor;
+
+                FromClause();
+
+x002         Else;
+
+                @Inc = *On;
+
+b003            If @DataBase = @MSSQL;
+                   srcseq += .01;
+                   srcdat = *Zeros;
+                   srcdta = 'go';
+                   Write qsqlsrc @SourceDs;
+e003            EndIf;
+
+                %Occur(@FieldsDs) = 1;
+
+                srcseq += .01;
+                srcdat = *Zeros;
+b003            If @DataBase = @Oracle;
+                   srcdta = 'create or replace force view ' + %Trim(@FileName);
+x003            Else;
+                   srcdta = 'create view ' + %Trim(@FileName);
+e003            EndIf;
+                Write qsqlsrc @SourceDs;
+                Clear srcdta;
+                srcseq += .01;
+b003            If @DataBase = @MSSQL;
+                   srcdta = 'with schemabinding as';
+x003            Else;
+                   srcdta = 'as';
+e003            EndIf;
+                Write qsqlsrc @SourceDs;
+                srcseq += .01;
+                srcdta = 'Select';
+                Write qsqlsrc @SourceDs;
+
+b003            For @a = 1 To @Occurances;
+b004               If @OccurInUse(@a);
+                      %Occur(@FieldsDs) = @a;
+                      Fields(@FieldsDs: @a : *On : @Occurances:
+                             @DataBase: @AliasDs);
+e004               EndIf;
+e003            EndFor;
+
+                FromClause();
+
+                WhereClause(@DataBase: *On: @Fields: @Files: @AliasDs);
+b003            If @DataBase = @Oracle;
+                   OrderByClause(@DataBase);
+e003            EndIf;
+
+e002         EndIf;
+e001      EndIf;
+
+b001      If @Inc;
+             srcdta  = %Trim(srcdta) + ';';
+             srcseq += .01;
+             Write qsqlsrc @SourceDs;
+e001      EndIf;
+          @#records = srcseq;
+
+          *Inlr = *On;
+          Return;
+
+          BegSr *Inzsr;
+
+             @Inc = *Off;
+
+b001         If Not CheckRecordLength(@DataBase);
+                *Inlr = *On;
+                Return;
+e001         EndIf;
+
+b001         If @#Records < 9999;
+                srcseq = @#records;
+x001         Else;
+                srcseq = *Zeros;
+e001         EndIf;
+
+             DeleteComp();
+
+             /copy qcpysrc,crtsqlsrcc
+          // @FieldsDs = BuildFieldArray(@Database);
+
+          EndSr;
+
+š         Dcl-Proc FromClause Export;
+
+          Dcl-Pi FromClause;
+          End-Pi;
+
+          Clear srcdta;
+b001      For @a = 1 To @Occurances;
+b002         If @OccurInUse(@a);
+                %Occur(@FieldsDs) = @a;
+b003            If @a = 2;
+b004               If @DataBase = @MSSQL;
+                      srcdta = 'From dbo.' + %Trim(@FieldsDs.@FromFile)
+                                           + ' inner join';
+                      srcdta = %Trim(srcdta) + ' dbo.'
+                             + @FieldsDs.@ToFile;
+x004               Else;
+                      srcdta = 'From ' + %Trim(@FieldsDs.@FromFile)
+                                       + ' inner join';
+                      srcdta = %Trim(srcdta) + ' ' + @FieldsDs.@ToFile;
+e004               EndIf;
+                   srcdta = %Trim(srcdta) + ' on';
+e003            EndIf;
+b003            If @a > 2;
+                   srcdta = ' inner join';
+b004               If @DataBase = @MSSQL;
+                      srcdta = %Trim(srcdta) + ' dbo.'
+                             + @FieldsDs.@ToFile;
+x004               Else;
+                      srcdta = %Trim(srcdta) + ' ' + @FieldsDs.@ToFile;
+e004               EndIf;
+                   srcdta = %Trim(srcdta) + ' on';
+e003            EndIf;
+b003            If srcdta <> *Blanks;
+                   Write qsqlsrc @SourceDs;
+e003            EndIf;
+                Clear srcdta;
+
+b003            If @a >= 2;
+                   Clear srcdta;
+b004               For @b = 1 to @FieldsDs.@JFldIndx;
+                      If  @FieldsDs.@FrJoinField(@b) <> *Blanks
+                      And @FieldsDs.@ToJoinField(@b) <> *Blanks;
+                         srcdta = ' ' + %Trim(@FieldsDs.@FromFile) + '.'
+                                + %Trim(@FieldsDs.@FrJoinField(@b))
+                                + ' = ' + %Trim(@FieldsDs.@ToFile) + '.'
+                                + @FieldsDs.@ToJoinField(@b);
+e005                  EndIf;
+b005                  If  @b < @FieldsDs.@JFldIndx
+                      And @FieldsDs.@FrJoinField(@b+1) <> *Blanks
+                      And @FieldsDs.@ToJoinField(@b+1) <> *Blanks;
+                         srcdta = ' ' + %Trim(srcdta) + ' And';
+e005                  EndIf;
+b005                  If srcdta <> *Blanks;
+                         Write qsqlsrc @SourceDs;
+e005                  EndIf;
+                      Clear srcdta;
+e004               EndFor;
+e003            EndIf;
+e002         EndIf;
+e001      EndFor;
+
+š         End-Proc;
+

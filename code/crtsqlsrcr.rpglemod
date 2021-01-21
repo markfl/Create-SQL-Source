@@ -1,0 +1,1439 @@
+          Ctl-opt NoMain Option(*NoDebugIO) BndDir('ISFLORESM');
+
+          Dcl-f qafdselo Usage(*Update:*Delete)      UsrOpn;
+          Dcl-f qadspffd Usage(*Input)               UsrOpn;
+          Dcl-f qafdaccp Usage(*Input)               UsrOpn;
+          Dcl-f qafdmbr  Usage(*Input)               UsrOpn;
+          Dcl-f qafdrfmt Usage(*Input)               UsrOpn;
+          Dcl-f crtsqlp  Usage(*Input:*Output) Keyed UsrOpn;
+          Dcl-f qsqlsrc  Usage(*Output) UsrOpn rename(qsqlsrc:rqsqlsrc);
+          Dcl-f qsqlsrcms Disk(112) Usage(*Output) UsrOpn;
+          Dcl-f qsqlsrcmy Disk(112) Usage(*Output) UsrOpn;
+          Dcl-f qsqlsrcor Disk(112) Usage(*Output) UsrOpn;
+          Dcl-f qsqlsrcib Disk(112) Usage(*Output) UsrOpn;
+          Dcl-f qafdjoin Usage(*Input) UsrOpn;
+
+          Dcl-s @SpecialfO  Char(10) Dim(12) ctdata;
+          Dcl-s @SpecialfMS Char(10) Dim(18) ctdata;
+          Dcl-s @Signa      Char(2)  Dim(6)  ctdata Perrcd(1);
+          Dcl-s @Chga       Char(2)  Dim(6)  Alt(@Signa);
+          Dcl-s @OSigna     Char(2)  Dim(6)  ctdata Perrcd(1);
+          Dcl-s @OChga      Char(2)  Dim(6)  Alt(@OSigna);
+
+š         Dcl-Proc ValidateFileName Export;
+
+          Dcl-Pi ValidateFileName  Ind;
+             @FileName Char(10) Const;
+          End-Pi;
+
+          Dcl-s @a Packed(3:0) Inz(*Zeros);
+
+          @a = %Scan('.': @FileName);
+b001      If @a > *Zeros;
+             Return *On;
+x001      Else;
+             Return *Off;
+e001      EndIf;
+
+š         End-Proc;
+
+š         Dcl-Proc CheckRecordLength Export;
+
+          Dcl-Pi CheckRecordLength Ind;
+             @Database Char(7) Const;
+          End-Pi;
+
+          /define crtsrcd01
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+
+b001      If Not %Open(qafdmbr);
+             Open qafdmbr;
+e001      EndIf;
+
+          Read qwhfdmbr;
+b001      If  Not %Eof(qafdmbr);
+b002         If  @DataBase = @MSSQL
+             And mbmxrl    > 8050;
+                Close qafdmbr;
+                Return *Off;
+e002         EndIf;
+e001      EndIf;
+
+          Close qafdmbr;
+
+b001      If Not %Open(qafdrfmt);
+             Open qafdrfmt;
+e001      EndIf;
+
+          Read qwhfdfmt;
+b001      If Not %EOF(qafdrfmt);
+
+b002         If  @DataBase = @MSSQL
+             And rffldn    > 1024
+             Or  @DataBase = @MSSQL
+             And rflen     > 8004;
+                Close qafdrfmt;
+                Return *Off;
+e002         EndIf;
+
+b002         If  @DataBase = @Oracle
+             Or  @DataBase = @MySql;
+b003            If rffldn  > 1000
+                Or rflen   > 65535;
+                  Close qafdrfmt;
+                  Return *Off;
+e003            EndIf;
+e002         EndIf;
+e001      EndIf;
+
+          Close qafdrfmt;
+          Return *On;
+
+š         End-Proc;
+
+š         Dcl-Proc CheckFileLength Export;
+
+          Dcl-Pi CheckFileLength Ind;
+             @Database Char(7) Const;
+          End-Pi;
+
+          /define crtsrcd01
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+
+b001      If Not %Open(qafdrfmt);
+             Open qafdrfmt;
+e001      EndIf;
+
+          Read qwhfdfmt;
+b001      If Not %EOF(qafdrfmt);
+
+b002         If  @DataBase = @MSSQL;
+b003            If rffldn  > 1024
+                Or rflen   > 8004;
+                   Close qafdrfmt;
+                   Return *Off;
+e003            EndIf;
+e002         EndIf;
+
+b002         If  @DataBase = @Oracle
+             Or  @DataBase = @MySql;
+b003            If rffldn  > 4096
+                Or rflen   > 65535;
+                   Close qafdrfmt;
+                   Return *Off;
+e003            EndIf;
+e002         EndIf;
+e001      EndIf;
+
+          Close qafdrfmt;
+          Return *On;
+
+š         End-Proc;
+
+š         Dcl-Proc DeleteComp Export;
+
+          Dcl-Pi DeleteComp;
+          End-Pi;
+
+b001      If Not %Open(qafdselo);
+             Open qafdselo;
+e001      EndIf;
+          Read qwhfdso;
+b001      Dow not %Eof(qafdselo);
+b002         If socomp = 'AL'
+             Or socomp = *Blanks;
+                Delete qwhfdso;
+e002         EndIf;
+             Read qwhfdso;
+e001      EndDo;
+          Close qafdselo;
+
+š         End-Proc;
+
+š         Dcl-Proc ConvertFieldName Export;
+
+          Dcl-Pi ConvertFieldName Char(10);
+             @FieldName Char(10) Const;
+             @DataBase  Char(7)  Const;
+             @FieldType Char(10) Const;
+          End-Pi;
+
+          Dcl-c fms '.@#';
+          Dcl-c tms '___';
+          Dcl-c for '@.';
+          Dcl-c tor '__';
+          Dcl-c fmy '#@';
+          Dcl-c tmy '__';
+
+          Dcl-s @a Packed(3:0) Inz(*Zeros);
+          Dcl-c @Specialc Const('@#$%&*_');
+          Dcl-s @NewFieldName Like(@FieldName);
+
+          /define mflores004
+          /copy qcpysrc,mflores
+          /undefine mflores004
+
+          /define crtsrcd01
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+
+          @NewFieldName = @ToLower(@FieldName);
+
+b001      If @DataBase = @MSSQL;
+             @a = %Scan(%Subst(@FieldName:1:1): @Specialc);
+b002         If @a > *Zeros;
+                @NewFieldName = 'a' + %Trim(@NewFieldName);
+e002         EndIf;
+b002         If @FieldType = 'FIELDNAME';
+                @a = %Lookup(@NewFieldName:@SpecialfMS);
+b003            If @a > *Zeros;
+                   @NewFieldName = %Trim(@NewFieldName) + '#';
+e003            EndIf;
+e002         EndIf;
+          // @NewFieldName = %Xlate(fms:tms:@NewFieldName);
+e001      EndIf;
+
+b001      If  @DataBase  = @mysql;
+b002         If @FieldType = 'FILENAME';
+                @NewFieldName = %Xlate(fmy:tmy:@NewFieldName);
+                @a = %Scan(%Subst(@FieldName:1:1): @Specialc);
+b003            If @a > *Zeros;
+                   @NewFieldName = 'a' + %Trim(@NewFieldName);
+e003            EndIf;
+e002         EndIf;
+b002         If @FieldType = 'FIELDNAME';
+                @NewFieldName = %Xlate(fmy:tmy:@NewFieldName);
+e002         EndIf;
+e001      EndIf;
+
+b001      If @DataBase = @oracle;
+             @NewFieldName = %Xlate(for:tor:@NewFieldName);
+             @a = %Scan(%Subst(@FieldName:1:1): @Specialc);
+b002         If @a > *Zeros;
+                @NewFieldName = 'a' + %Trim(@NewFieldName);
+e002         EndIf;
+b002         If @FieldType = 'FIELDNAME';
+                @a = %Lookup(@NewFieldName:@SpecialfO);
+b003            If @a > *Zeros;
+                   @NewFieldName = %Trim(@NewFieldName) + '#';
+e003            EndIf;
+e002         EndIf;
+e001      EndIf;
+
+          Return @NewFieldName;
+
+š         End-Proc;
+
+š         Dcl-Proc Fields Export;
+
+          Dcl-Pi Fields;
+             @FieldsDs    LikeDs(@FieldDs) Const;
+             @Occurance   Packed(3:0)      Const;
+             @IncFileName Ind              Const;
+             @MultiOccur  Packed(3:0)      Const;
+             @Database    Char(7)          Const;
+             @AliasDs     LikeDs(@AliasFields);
+          End-Pi;
+
+          /define mflores074
+          /copy qcpysrc,mflores
+          /undefine mflores074
+
+          /define crtsrcd01
+          /define crtsrcd04
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd04
+          /undefine crtsrcd14
+
+          Dcl-s @b Packed(3:0) Inz(*Zeros);
+          Dcl-s @c Packed(3:0) Inz(*Zeros);
+          Dcl-s @d Packed(3:0) Inz(*Zeros);
+
+b001      If Not %Open(qsqlsrc);
+             Open qsqlsrc;
+e001      EndIf;
+
+          Clear srcdta;
+b001      For @b = 1 to @FieldsDs.@FldIndx;
+
+b002         If @IncFileName;
+
+b003            If @FieldsDs.@Map(@b) = @Yes;
+
+b004               If srcdta <> *Blanks;
+                      Write rqsqlsrc;
+                      Reset @c;
+                      Clear srcdta;
+e004               EndIf;
+
+b004               If @DataBase = @Oracle
+                   Or @DataBase = @DB2;
+
+                      srcdta = %Trim(srcdta) + ' substr('
+                             + %Trim(@FieldsDs.@MapField(@b))
+                             + ',' + %Char(@FieldsDs.@Maps(@b))
+                             + ',' + %Char(@FieldsDs.@Mapl(@b))
+                             + ') as ' + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+                      @d = %Lookup(*Blanks:@AliasDs.@SSFldName);
+                      @AliasDs.@SSFldName(@d) = 'substr('
+                               + %Trim(@FieldsDs.@MapField(@b))
+                               + ',' + %Char(@FieldsDs.@Maps(@b))
+                               + ',' + %Char(@FieldsDs.@Mapl(@b));
+                      @AliasDs.@Alias(@d) = %Trim(@FieldsDs.@FieldName(@b));
+
+x004               Else;
+
+                      srcdta = %Trim(srcdta) + ' substring('
+                             + %Trim(@FieldsDs.@MapField(@b))
+                             + ',' + %Char(@FieldsDs.@Maps(@b))
+                             + ',' + %Char(@FieldsDs.@Mapl(@b))
+                             + ') as ' + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+                      @d = %Lookup(*Blanks:@AliasDs.@SSFldName);
+                      @AliasDs.@SSFldName(@d) = 'substring('
+                               + %Trim(@FieldsDs.@MapField(@b))
+                               + ',' + %Char(@FieldsDs.@Maps(@b))
+                               + ',' + %Char(@FieldsDs.@Mapl(@b)) + ')';
+                      @AliasDs.@Alias(@d) = %Trim(@FieldsDs.@FieldName(@b));
+
+e004               EndIf;
+
+                   Write rqsqlsrc;
+                   Reset @c;
+                   Clear srcdta;
+
+x003            Else;
+                   @c += 1;
+b004               If @b = 1;
+b005                  If @FieldsDs.@FldIndx > 1;
+                         srcdta = %Trim(srcdta) + %Trim(@FieldsDs.@FileName)
+                                + '.' + %Trim(@FieldsDs.@FieldName(@b))
+                                + ',';
+x005                  Else;
+                         srcdta = %Trim(srcdta) + %Trim(@FieldsDs.@FileName)
+                                + '.' + %Trim(@FieldsDs.@FieldName(@b));
+e005                  EndIf;
+x004               Else;
+b005                  If @b < @FieldsDs.@FldIndx;
+                         srcdta = ' ' + %Trim(srcdta) + ' '
+                                + %Trim(@FieldsDs.@FileName) + '.'
+                                + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+x005                  Else;
+b006                     If srcdta <> *Blanks;
+                            srcdta = ' ' + %Trim(srcdta) + ' '
+                                   + %Trim(@FieldsDs.@FileName) + '.'
+                                   + %Trim(@FieldsDs.@FieldName(@b));
+x006                     Else;
+                            srcdta = %Trim(srcdta) + ' '
+                                + %Trim(@FieldsDs.@FileName) + '.'
+                                + %Trim(@FieldsDs.@FieldName(@b));
+e006                     EndIf;
+e005                  EndIf;
+e004               EndIf;
+e003            EndIf;
+x002         Else;
+
+b003            If @FieldsDs.@Map(@b) = @Yes;
+
+b004               If srcdta <> *Blanks;
+                      Write rqsqlsrc;
+                      Reset @c;
+                      Clear srcdta;
+e004               EndIf;
+
+b004               If @DataBase = @Oracle
+                   Or @DataBase = @DB2;
+
+                      srcdta = %Trim(srcdta) + ' substr('
+                             + %Trim(@FieldsDs.@MapField(@b))
+                             + ',' + %Char(@FieldsDs.@Maps(@b))
+                             + ',' + %Char(@FieldsDs.@Mapl(@b))
+                             + ') as ' + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+                      @d = %Lookup(*Blanks:@AliasDs.@SSFldName);
+                      @AliasDs.@SSFldName(@d) = 'substr('
+                               + %Trim(@FieldsDs.@MapField(@b))
+                               + ',' + %Char(@FieldsDs.@Maps(@b))
+                               + ',' + %Char(@FieldsDs.@Mapl(@b));
+                      @AliasDs.@Alias(@d) = %Trim(@FieldsDs.@FieldName(@b));
+
+x004               Else;
+
+                      srcdta = %Trim(srcdta) + ' substring('
+                             + %Trim(@FieldsDs.@MapField(@b))
+                             + ',' + %Char(@FieldsDs.@Maps(@b))
+                             + ',' + %Char(@FieldsDs.@Mapl(@b))
+                             + ') as ' + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+                      @d = %Lookup(*Blanks:@AliasDs.@SSFldName);
+                      @AliasDs.@SSFldName(@d) = 'substring('
+                               + %Trim(@FieldsDs.@MapField(@b))
+                               + ',' + %Char(@FieldsDs.@Maps(@b))
+                               + ',' + %Char(@FieldsDs.@Mapl(@b));
+                      @AliasDs.@Alias(@d) = %Trim(@FieldsDs.@FieldName(@b));
+
+e004               EndIf;
+
+                   Write rqsqlsrc;
+                   Reset @c;
+                   Clear srcdta;
+
+x003            Else;
+
+                   @c += 1;
+b004               If @b = 1;
+b005                  If @FieldsDs.@FldIndx > 1;
+                         srcdta = %Trim(srcdta)
+                                + %Trim(@FieldsDs.@FieldName(@b))  + ',';
+
+x005                  Else;
+                         srcdta = %Trim(srcdta)
+                                + %Trim(@FieldsDs.@FieldName(@b));
+e005                  EndIf;
+x004               Else;
+b005                  If @b < @FieldsDs.@FldIndx;
+                         srcdta = ' ' + %Trim(srcdta) + ' '
+                                + %Trim(@FieldsDs.@FieldName(@b)) + ',';
+x005                  Else;
+b006                     If srcdta <> *Blanks;
+                            srcdta = ' ' + %Trim(srcdta) + ' '
+                                   + %Trim(@FieldsDs.@FieldName(@b));
+x006                     Else;
+                            srcdta = %Trim(srcdta) + ' '
+                                + %Trim(@FieldsDs.@FieldName(@b));
+e006                     EndIf;
+e005                  EndIf;
+e004               EndIf;
+e003            EndIf;
+e002         EndIf;
+
+b002         If  @b = @FieldsDs.@FldIndx
+             And @Occurance < @MultiOccur
+             And srcdta <> *Blanks;
+                srcdta = ' ' + %Trim(srcdta) + ',';
+e002         EndIf;
+
+b002         If @c = 3;
+                Write rqsqlsrc;
+                Reset @c;
+                Clear srcdta;
+e002         EndIf;
+e001      EndFor;
+
+b001      If srcdta <> *Blanks;
+
+             Write rqsqlsrc;
+
+e001      EndIf;
+
+          Clear srcdta;
+          Close qsqlsrc;
+
+š         End-Proc;
+
+š         Dcl-Proc CheckForSubstringFields Export;
+
+          Dcl-Pi CheckForSubstringFields;
+             @Database Char(7) Const;
+             @AliasDs  LikeDs(@AliasFields);
+          End-Pi;
+
+          Dcl-s @FieldName Char(10) Inz(*Blanks);
+          Dcl-s @d Packed(3:0) Inz(*Zeros);
+
+          /define mflores074
+          /copy qcpysrc,mflores
+          /undefine mflores074
+
+          /define crtsrcd01
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd14
+
+b001      If Not %Open(qsqlsrc);
+             Open qsqlsrc;
+e001      EndIf;
+
+b001      If Not %Open(qadspffd);
+             Open qadspffd;
+e001      EndIf;
+
+          Read qwhdrffd;
+b001      Dow Not %Eof(qadspffd);
+
+             whflde     = ConvertFieldName(whflde:@DataBase:'FIELDNAME');
+             whfldi     = ConvertFieldName(whfldi:@DataBase:'FIELDNAME');
+             @FieldName = whflde;
+b002         If whmap = @No;
+                srcdta = %Trim(srcdta) + ' ' + @FieldName;
+x002         Else;
+
+                @d = %Lookup(*Blanks:@AliasDs.@SSFldName);
+                @AliasDs.@SSFldName(@d) = 'substring('
+                        + %Trim(whfldi)
+                        + ',' + %Char(whmaps)
+                        + ',' + %Char(whmapl) + ')';
+                @AliasDs.@Alias(@d) = %Trim(@FieldName);
+
+b003            If @DataBase = @Oracle
+                Or @DataBase = @DB2;
+
+                   srcdta = %Trim(srcdta) + ' substr(' + %Trim(whfldi)
+                             + ',' + %Char(whmaps)
+                             + ',' + %Char(whmapl)
+                             + ') as ' + @FieldName;
+x003            Else;
+
+                   srcdta = %Trim(srcdta) + ' substring(' + %Trim(whfldi)
+                          + ',' + %Char(whmaps)
+                          + ',' + %Char(whmapl)
+                          + ') as ' + @FieldName;
+
+e003            EndIf;
+e002         EndIf;
+
+             Read qwhdrffd;
+b002         If Not %Eof(qadspffd);
+                srcdta = ' ' + %Trim(srcdta) + ',';
+e002         EndIf;
+             Readp qwhdrffd;
+
+             Write rqsqlsrc;
+             Clear srcdta;
+
+             Read qwhdrffd;
+e001      EndDo;
+
+b001      If srcdta <> *Blanks;
+             Write rqsqlsrc;
+             Clear srcdta;
+e001      EndIf;
+
+          Close qsqlsrc;
+          Close qadspffd;
+
+          Return;
+
+š         End-Proc;
+
+š         Dcl-Proc WhereClause Export;
+
+          Dcl-Pi WhereClause;
+             @DataBase    Char(7)  Const;
+             @IncFileName Ind      Const;
+             @Fields      Char(10) Const Dim(700);
+             @Files       Char(10) Const Dim(700);
+             @AliasDs     LikeDs(@AliasFields) Const;
+          End-Pi;
+
+          Dcl-s @PriorField  Char(10)     Inz(*Blanks);
+          Dcl-s @PriorRule   Char(1)      Inz(*Blanks);
+          Dcl-s @PriorComp   Like(socomp) Inz(*Blanks);
+          Dcl-s @Count       Packed(3)    Inz(*Zeros);
+          Dcl-s @FirstWhere  Ind          Inz(*On);
+          Dcl-s @FirstSelect Ind          Inz(*On);
+          Dcl-s @FirstWrite  Ind          Inz(*Off);
+          Dcl-s @AndInd      Ind          Inz(*Off);
+          Dcl-s @a           Packed(3)    Inz(*Zeros);
+          Dcl-s @b           Packed(3)    Inz(*Zeros);
+          Dcl-s @c           Packed(3)    Inz(*Zeros);
+          Dcl-s @d           Packed(3)    Inz(*Zeros);
+          Dcl-s @e           Packed(3)    Inz(*Zeros);
+          Dcl-s @Values      Like(sovalu) Inz(*Blanks) Dim(50);
+          Dcl-s @ValuesInd   Ind          Inz(*Off);
+
+          /define crtsrcd01
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd14
+
+b001      If Not %Open(qsqlsrc);
+             Open qsqlsrc;
+e001      EndIf;
+
+b001      If Not %Open(qafdselo);
+             Open qafdselo;
+e001      EndIf;
+
+          Read qwhfdso;
+b001      Dow not %Eof(qafdselo);
+             sofld = ConvertFieldName(sofld: @DataBase: 'FIELDNAME');
+b002         If @FirstWhere;
+                Clear srcdta;
+                srcseq += .01;
+                srcdta = 'where';
+                Write rqsqlsrc;
+                Clear srcdta;
+                srcseq += .01;
+e002         EndIf;
+b002         Select;
+x002            When sorule = 'S';
+b003               If not @FirstWhere;
+b004                  Select;
+x004                     When sorule     =  'S'
+                         And  @PriorRule =  'S'
+                         And  socomp     <> 'VA';
+                            srcdta = ' or  ';
+x004                     When sorule     =  'S'
+                         And  @PriorRule =  'S'
+                         And  @AndInd;
+                            srcdta = ' or  ';
+x004                     When sorule     =  'S'
+                         And  @PriorRule =  'O'
+                         And  socomp     <> 'VA'
+                         And  @PriorComp <> 'VA';
+                            srcdta = ' and';
+x004                     When sorule     =  'S';
+b005                        If @PriorRule <> 'S';
+                               srcdta = ' or  ';
+e005                        EndIf;
+e004                  EndSl;
+e003               EndIf;
+                   @AndInd = *Off;
+
+b003               If  socomp     <> 'VA'
+                   And @PriorComp =  'VA';
+b004                  If Not @FirstWrite;
+                         srcdta = '     ' + %Trim(@PriorField) + ' in (';
+x004                  Else;
+                         srcdta = ' and ' + %Trim(@PriorField) + ' in (';
+e004                  EndIf;
+b004                  For @d = 1 to @c;
+                         srcdta = %Trimr(srcdta) + ' ' + %Trim(@Values(@d));
+b005                     If @d < @c;
+                            srcdta = %Trimr(srcdta) + ',';
+e005                     EndIf;
+e004                  EndFor;
+                      srcdta = %Trimr(srcdta) + ')';
+                      @ValuesInd = *Off;
+                      Write rqsqlsrc;
+                      @FirstSelect = *Off;
+                      @FirstWrite  = *On;
+                      Reset @Count;
+                      Clear srcdta;
+                      Clear @Values;
+                      Reset @c;
+                      Reset @d;
+e003               EndIf;
+
+                   @FirstWhere = *Off;
+                   @a = %LookUp(socomp: @Signa);
+                   @b = %LookUp(sofld: @Fields);
+b003               If @a > *Zeros;
+                      @Count += 1;
+                      @e = %Lookup(sofld:@AliasDs.@Alias);
+b004                  If srcdta = *Blanks;
+b005                     If @IncFileName;
+b006                        If @e > *Zeros;
+                               srcdta = %Trim(@AliasDs.@SSFldName(@e)) + ' '
+                                      + %Trim(@Chga(@a)) + ' ' + %Trim(sovalu);
+x006                        Else;
+                               srcdta = '     ' + %Trim(@Files(@b)) +'.'
+                                      + %Trim(sofld) + ' '
+                                      + %Trim(@Chga(@a)) + ' ' + %Trim(sovalu);
+e006                        EndIf;
+x005                     Else;
+b006                        If sorule = 'S';
+b007                           If @e > *Zeros;
+                                  srcdta = %Trim(@AliasDs.@SSFldName(@e)) + ' '
+                                         + %Trim(@Chga(@a))
+                                         + ' ' + %Trim(sovalu);
+x007                           Else;
+                                  srcdta = '     ' + %Trim(sofld) + ' '
+                                         + %Trim(@Chga(@a)) + ' '
+                                         + %Trim(sovalu);
+e007                           EndIf;
+x006                        ElseIf sorule = 'A';
+b007                           If @e > *Zeros;
+                                  srcdta = ' and '
+                                         + %Trim(@AliasDs.@SSFldName(@e))
+                                         + ' ' + %Trim(@Chga(@a))
+                                         + ' ' + %Trim(sovalu);
+x007                           Else;
+                                  srcdta = ' and ' + %Trim(sofld)
+                                         + ' ' + %Trim(@Chga(@a))
+                                         + ' ' + %Trim(sovalu);
+e007                           EndIf;
+e006                        EndIf;
+e005                     EndIf;
+x004                  Else;
+b005                     If @IncFileName;
+b006                        If @e > *Zeros;
+                               srcdta = %Trimr(srcdta) + '  '
+                                      + %Trim(@AliasDs.@SSFldName(@e)) + ' '
+                                      + '.' + %Trim(sofld)
+                                      + ' ' + %Trim(@Chga(@a))
+                                      + ' ' + %Trim(sovalu);
+x006                        Else;
+                               srcdta = %Trimr(srcdta)
+                                      + '  ' + %Trim(@Files(@b))
+                                      + '.' + %Trim(sofld)
+                                      + ' ' + %Trim(@Chga(@a))
+                                      + ' ' + %Trim(sovalu);
+e006                        EndIf;
+x005                     Else;
+b006                        If @e > *Zeros;
+                               srcdta = %Trimr(srcdta)
+                                      + '  ' + %Trim(@AliasDs.@SSFldName(@e))
+                                      + ' ' + %Trim(@Chga(@a))
+                                      + ' ' + %Trim(sovalu);
+x006                        Else;
+                               srcdta = %Trimr(srcdta)
+                                      + '  ' + %Trim(sofld)
+                                      + ' ' + %Trim(@Chga(@a))
+                                      + ' ' + %Trim(sovalu);
+e006                        EndIf;
+e005                     EndIf;
+e004                  EndIf;
+                      Write rqsqlsrc;
+                      Clear srcdta;
+                      @FirstSelect = *Off;
+x003               Else;
+b004                  If socomp = 'VA';
+
+                         @e = %Lookup(@PriorComp:@AliasDs.@Alias);
+b005                     If @PriorField <> sofld
+                         And @ValuesInd
+                         And @PriorComp = 'VA';
+b006                        If @e > *Zeros;
+b006                           If @FirstSelect;
+                               srcdta = '     ' + %Trim(@AliasDs.@SSFldName(@e))
+                                                + ' not in (';
+x006                           Else;
+                               srcdta = ' and ' + %Trim(@AliasDs.@SSFldName(@e))
+                                                + ' not in (';
+e006                           EndIf;
+x006                        Else;
+b006                           If @FirstSelect;
+                                  srcdta = '     ' + %Trim(@PriorField)
+                                                   + ' not in (';
+x006                           Else;
+                                  srcdta = ' and ' + %Trim(@PriorField)
+                                                   + ' not in (';
+e006                           EndIf;
+e006                        EndIf;
+b006                        For @d = 1 to @c;
+                               srcdta = %Trim(srcdta) + %Trim(@Values(@d));
+b007                           If @d < @c;
+                                  srcdta = %Trim(srcdta) + ',';
+e007                           EndIf;
+e006                        EndFor;
+                            srcdta = %Trim(srcdta) + ')';
+                            @ValuesInd = *Off;
+                            Write rqsqlsrc;
+                            @FirstSelect = *Off;
+                            Reset @Count;
+                            Clear srcdta;
+                            Clear @Values;
+                            Reset @c;
+                            Reset @d;
+                            @Count += 1;
+x005                     Else;
+                            @Count += 1;
+                            @c     += 1;
+                            @Values(@c) = sovalu;
+                            @ValuesInd = *On;
+e005                     EndIf;
+e004                  EndIf;
+e003               EndIf;
+b003               If sorule = 'S';
+                      @PriorRule = sorule;
+e003               EndIf;
+                   @PriorComp = socomp;
+
+x002            When sorule = 'A';
+
+                   @AndInd = *On;
+                   @e = %Lookup(@PriorField:@AliasDs.@Alias);
+b003               If @PriorField <> sofld
+                   And @ValuesInd
+                   And @PriorComp = 'VA';
+b004                  If @e > *Zeros;
+b005                     If @FirstSelect;
+b006                        If @PriorRule = 'S';
+                               srcdta = '      '
+                                      + %Trim(@AliasDs.@SSFldName(@e))
+                                      + ' in (';
+x006                        Else;
+                               srcdta = '      '
+                                      + %Trim(@AliasDs.@SSFldName(@e))
+                                      + ' not in (';
+e006                        EndIf;
+x005                     Else;
+b006                        If @PriorRule = 'S';
+                               srcdta = '      '
+                                      + %Trim(@AliasDs.@SSFldName(@e))
+                                      + ' in (';
+x006                        Else;
+                               srcdta = '      '
+                                      + %Trim(@AliasDs.@SSFldName(@e))
+                                         + ' not in (';
+e006                        EndIf;
+e005                     EndIf;
+x004                  Else;
+b005                     If @FirstSelect;
+b006                        If @PriorRule = 'S';
+                               srcdta = '      ' + %Trim(@PriorField)
+                                               + ' in (';
+x006                        Else;
+                               srcdta = '      ' + %Trim(@PriorField)
+                                               + ' not in (';
+e006                        EndIf;
+x005                     Else;
+b006                        If @PriorRule = 'S';
+                   // srcdta = ' and';
+                               srcdta = ' and  '
+                                      + %Trim(@PriorField)
+                                      + ' in (';
+x006                        Else;
+                               srcdta = ' and  '
+                                      + %Trim(@PriorField)
+                                      + ' not in (';
+e006                        EndIf;
+e005                     EndIf;
+e004                  EndIf;
+b004                  For @d = 1 to @c;
+                         srcdta = %Trimr(srcdta) + %Trim(@Values(@d));
+b005                     If @d < @c;
+                            srcdta = %Trimr(srcdta) + ',';
+e005                     EndIf;
+e004                  EndFor;
+                      srcdta = %Trimr(srcdta) + ')';
+                      @ValuesInd = *Off;
+                      Write rqsqlsrc;
+                      @FirstSelect = *Off;
+                      Reset @Count;
+                      Clear srcdta;
+                      Clear @Values;
+                      Reset @c;
+                      Reset @d;
+e003               EndIf;
+b004               If socomp = 'VA';
+                      @Count += 1;
+                      @c     += 1;
+                      @Values(@c) = sovalu;
+                      @ValuesInd = *On;
+e003               EndIf;
+b003               If not @FirstWhere;
+                   // srcdta = ' and';
+e003               EndIf;
+b003               If @PriorRule =  'S';
+                      @a = %LookUp(socomp: @Signa);
+b003               ElseIf @PriorRule =  'O';
+                      @a = %LookUp(socomp: @OSigna);
+e003               EndIf;
+b003               If @a > *Zeros;
+                      @Count += 1;
+                      @e = %Lookup(sofld:@AliasDs.@Alias);
+b004                  If @e > *Zeros;
+b005                     If @PriorRule =  'S';
+                            srcdta = ' and  '
+                                   + %Trim(@AliasDs.@SSFldName(@e))
+                                   + %Trim(@Chga(@a)) + ' ' + %Trim(sovalu);
+b005                     ElseIf @PriorRule =  'O';
+                            srcdta = ' and  '
+                                   + %Trim(@AliasDs.@SSFldName(@e))
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+e005                     EndIf;
+x004                  Else;
+b005                     If @PriorRule =  'S';
+                            srcdta = ' and  ' + %Trim(sofld) + ' '
+                                   + %Trim(@Chga(@a)) + ' ' + %Trim(sovalu);
+b005                     ElseIf @PriorRule =  'O';
+                            srcdta = ' and  ' + %Trim(sofld) + ' '
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+e005                     EndIf;
+e004                  EndIf;
+e003               EndIf;
+b003               If srcdta <> *Blanks;
+                      Write rqsqlsrc;
+                      Clear srcdta;
+                      @FirstSelect = *Off;
+e003               EndIf;
+                   @PriorComp = socomp;
+
+x002            When sorule = 'O';
+b003               If not @FirstWhere;
+b004                  Select;
+x004                     When sorule     = 'O'
+                         And  @PriorRule = 'O';
+                            srcdta = '  or';
+x004                     When sorule     = 'O'
+                         And  @PriorRule = 'S'
+                         And  @AndInd;
+                            srcdta = ' or ';
+x004                     When sorule     = 'O'
+                         And  @PriorRule = 'S'
+                         And  Not @AndInd;
+                            srcdta = ' and';
+e004                  EndSl;
+e003               EndIf;
+                   @AndInd = *Off;
+                   @FirstWhere = *Off;
+                   @a = %LookUp(socomp: @OSigna);
+                   @b = %LookUp(sofld: @Fields);
+b003               If @a > *Zeros;
+                      @Count += 1;
+b004                  If srcdta = *Blanks;
+b005                     If @IncFileName;
+                            srcdta = '      ' + %Trim(@Files(@b)) +'.'
+                                   + %Trim(sofld) + ' '
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+x005                     Else;
+                            srcdta = '      ' + %Trim(sofld) + ' '
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+e005                     EndIf;
+x004                  Else;
+b005                     If @IncFileName;
+                            srcdta = %Trimr(srcdta) + ' ' + %Trim(@Files(@b))
+                                   + '.' + %Trim(sofld) + ' '
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+x005                     Else;
+                            srcdta = %Trimr(srcdta) + ' ' + %Trim(sofld) + ' '
+                                   + %Trim(@OChga(@a)) + ' ' + %Trim(sovalu);
+e005                     EndIf;
+e004                  EndIf;
+                      Write rqsqlsrc;
+                      Clear srcdta;
+                      @FirstSelect = *Off;
+x003               Else;
+b004                  If socomp = 'VA';
+
+b005                     If @PriorField <> sofld
+                         And @ValuesInd;
+b006                        If @FirstSelect;
+                               srcdta = '    ' + %Trim(@PriorField)
+                                               + ' not in (';
+x006                        Else;
+                               srcdta = 'and ' + %Trim(@PriorField)
+                                               + ' not in (';
+e006                        EndIf;
+b006                        For @d = 1 to @c;
+                               srcdta = %Trim(srcdta) + %Trim(@Values(@d));
+b007                           If @d < @c;
+                                  srcdta = %Trim(srcdta) + ',';
+e007                           EndIf;
+e006                        EndFor;
+                            srcdta = %Trim(srcdta) + ')';
+                            @ValuesInd = *Off;
+                            Write rqsqlsrc;
+                            @FirstSelect = *Off;
+                            Reset @Count;
+                            Clear srcdta;
+                            Clear @Values;
+                            Reset @c;
+                            Reset @d;
+                            @Count += 1;
+x005                     Else;
+                            @Count += 1;
+                            @c     += 1;
+                            @Values(@c) = sovalu;
+                            @ValuesInd = *On;
+e005                     EndIf;
+e004                  EndIf;
+e003               EndIf;
+b003               If sorule = 'O';
+                      @PriorRule = sorule;
+e003               EndIf;
+                   @PriorComp = socomp;
+e002         EndSl;
+
+             @PriorField = sofld;
+
+             Read qwhfdso;
+e001      EndDo;
+
+b001      If @ValuesInd;
+             @e = %Lookup(sofld:@AliasDs.@Alias);
+b002         If sorule     = 'S'
+             Or @Priorrule = 'S';
+b003            If @e > *Zeros;
+b004               If @FirstSelect;
+                      srcdta = '      '
+                             + %Trim(@AliasDs.@SSFldName(@e))
+                             + ' in (';
+x004               Else;
+                      srcdta = ' and  '
+                             + %Trim(@AliasDs.@SSFldName(@e))
+                             + ' in (';
+e004               EndIf;
+x003            Else;
+b004               If @FirstSelect;
+                      srcdta = '      ' + %Trim(@PriorField) + ' in (';
+x004               Else;
+                      srcdta = ' and  ' + %Trim(@PriorField) + ' in (';
+e004               EndIf;
+e003            EndIf;
+e002         EndIf;
+b002         If sorule     = 'O'
+             Or @Priorrule = 'O';
+b003            If @e > *Zeros;
+b004               If @FirstSelect;
+                      srcdta = '      '
+                             + %Trim(@AliasDs.@SSFldName(@e))
+                             + ' not in (';
+x004               Else;
+                      srcdta = ' and  '
+                             + %Trim(@AliasDs.@SSFldName(@e))
+                             + ' not in (';
+e004               EndIf;
+x003            Else;
+b003               If @FirstSelect;
+                      srcdta = '      ' + %Trim(@PriorField) + ' not in (';
+x003               Else;
+                      srcdta = ' and  ' + %Trim(@PriorField) + ' not in (';
+e004               EndIf;
+e003            EndIf;
+e002         EndIf;
+             Clear @a;
+b002         For @d = 1 to @c;
+                @a += 1;
+b003            If @a = 11;
+                   Write rqsqlsrc;
+                   Clear srcdta;
+                   %SubSt(srcdta:33) = %Trim(@Values(@d));
+x003            Else;
+                   srcdta = %Trimr(srcdta) + ' ' + %Trim(@Values(@d));
+e003            EndIf;
+b003            If @d < @c;
+                   srcdta = %Trimr(srcdta) + ',';
+e003            EndIf;
+e002         EndFor;
+             srcdta = %Trimr(srcdta) + ')';
+e001      EndIf;
+
+b001      If srcdta <> *Blanks;
+
+             Write rqsqlsrc;
+
+e001      EndIf;
+
+          Clear srcdta;
+          Close qafdselo;
+          Close qsqlsrc;
+
+š         End-Proc;
+
+š         Dcl-Proc OrderByClause Export;
+
+          Dcl-Pi OrderByClause;
+             @DataBase Char(7) Const;
+          End-Pi;
+
+          Dcl-s @Count        Packed(5:0) Inz(*Zeros);
+          Dcl-s @FirstOrderBy Ind         Inz(*On);
+
+b001      If Not %Open(qsqlsrc);
+             Open qsqlsrc;
+e001      EndIf;
+
+b001      If Not %Open(qafdaccp);
+             Open qafdaccp;
+e001      EndIf;
+
+          Read qwhfdacp;
+b001      Dow not %Eof(qafdaccp);
+             apkeyf = ConvertFieldName(apkeyf: @DataBase: 'FIELDNAME');
+             @Count += 1;
+             srcseq += .01;
+             srcdat = *Zeros;
+b002         If @FirstOrderBy;
+                Clear srcdta;
+                srcseq += .01;
+                srcdta = 'order by';
+                Write rqsqlsrc;
+                Clear srcdta;
+                srcseq += .01;
+                srcdta = '    ' + %trimr(apkeyf);
+b003            If apkseq = 'D';
+                   srcdta = %Trim(srcdta) + ' desc';
+e003            EndIf;
+x002         Else;
+b002            If @Count <= 16;
+                   srcdta = '    ' + %trimr(apkeyf);
+b003               If apkseq = 'D';
+                      srcdta = %Trim(srcdta) + ' desc';
+e003               EndIf;
+x002            Else;
+b003               If apkseq = 'D';
+                      srcdta = '/* ' + %Trim(apkeyf) + ' desc */';
+x003               Else;
+                      srcdta = '/* ' + %trimr(apkeyf) + ' */';
+e003               EndIf;
+e002            EndIf;
+e002         EndIf;
+             Read qwhfdacp;
+b002         If Not %Eof(qafdaccp);
+b003            If @Count < 16;
+                   srcdta = %Trimr(srcdta) + ',';
+e003            EndIf;
+e002         EndIf;
+             Readp qwhfdacp;
+             Write rqsqlsrc;
+             Clear srcdta;
+             @FirstOrderBy = *Off;
+             Read qwhfdacp;
+e001      EndDo;
+
+          Clear srcdta;
+          Close qafdaccp;
+          Close qsqlsrc;
+
+š         End-Proc;
+
+š         Dcl-Proc AddIndexToCheck Export;
+
+          Dcl-Pi AddIndexToCheck;
+             @DataBase Char(7) Const;
+          End-Pi;
+
+          Dcl-Ds @KeyDs likerec(rcrtsqlp : *key);
+
+b001      If Not %Open(qafdaccp);
+             Open qafdaccp;
+e001      EndIf;
+
+b001      If Not %Open(crtsqlp);
+             Open crtsqlp;
+e001      EndIf;
+
+          Read qwhfdacp;
+b001      Dow not %Eof(qafdaccp);
+
+b002         If apbof = *Blanks;
+                apbof = apfile;
+e002         EndIf;
+
+             @KeyDs.database = @DataBase;
+             @KeyDs.apbof    = apbof;
+             @KeyDs.apkeyn   = apkeyn;
+             @KeyDs.apkeyf   = apkeyf;
+             @KeyDs.apfile   = apfile;
+
+             Chain %Kds(@KeyDs) rcrtsqlp;
+b002         If Not %Found(crtsqlp);
+
+                database = @DataBase;
+
+                Write rcrtsqlp;
+
+e002         EndIf;
+
+             Read qwhfdacp;
+
+e001      EndDo;
+
+          Close qafdaccp;
+          Close crtsqlp;
+
+š         End-Proc;
+
+š         Dcl-Proc CheckForValidIndex Export;
+
+          Dcl-Pi CheckForValidIndex Ind;
+             @DataBase Char(7) Const;
+          End-Pi;
+
+          Dcl-Ds @KeyDs likerec(rcrtsqlp : *key);
+
+b001      If Not %Open(qafdaccp);
+             Open qafdaccp;
+e001      EndIf;
+
+b001      If Not %Open(crtsqlp);
+             Open crtsqlp;
+e001      EndIf;
+
+          Read qwhfdacp;
+b001      Dow not %Eof(qafdaccp);
+
+             @KeyDs.database = @DataBase;
+             @KeyDs.apbof    = apbof;
+             @KeyDs.apkeyn   = apkeyn;
+             @KeyDs.apkeyf   = apkeyf;
+
+             Chain %Kds(@KeyDs:4) rcrtsqlp;
+             If Not %Found(crtsqlp);
+                Close qafdaccp;
+                Close crtsqlp;
+                Return *On;
+             EndIf;
+
+             Read qwhfdacp;
+
+e001      EndDo;
+
+          Close qafdaccp;
+          Close crtsqlp;
+
+          Return *Off;
+
+š         End-Proc;
+
+š         Dcl-Proc BuildFieldArray Export;
+
+          Dcl-Pi BuildFieldArray LikeDs(@FieldsDs);
+             @Database Char(7) Const;
+          End-Pi;
+
+          /define mflores074
+          /copy qcpysrc,mflores
+          /undefine mflores074
+
+          /define crtsrcd01
+          /define crtsrcd02
+          /define crtsrcd03
+          /define crtsrcd04
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd02
+          /undefine crtsrcd03
+          /undefine crtsrcd04
+          /undefine crtsrcd14
+
+          Clear @Occurances;
+
+b001      For @OccurIdx = 1 To @Occurs;
+
+             %Occur(@FieldsDs) = @OccurIdx;
+             Clear @FieldsDs.@FldIndx;
+             Clear @FieldsDs.@JFldIndx;
+             Clear @FieldsDs.@FileName;
+             Clear @FieldsDs.@FromFile;
+             Clear @FieldsDs.@ToFile;
+             Clear @FieldsDs.@FrJoinField;
+             Clear @FieldsDs.@ToJoinField;
+             Clear @FieldsDs.@FieldName;
+             Clear @FieldsDs.@MapField;
+             Clear @FieldsDs.@Map;
+             Clear @FieldsDs.@Maps;
+             Clear @FieldsDs.@Mapl;
+             Clear @AliasDs.@SSFldName;
+             Clear @AliasDs.@Alias;
+
+e001      EndFor;
+          Clear @OccurIdx;
+
+b001      If Not %Open(qafdmbr);
+             Open qafdmbr;
+e001      EndIf;
+
+b001      If  @DataBase = @MSSQL;
+             Read qwhfdmbr;
+b002         If  Not %Eof(qafdmbr);
+e002         EndIf;
+e001      EndIf;
+
+b001      If Not %Open(qadspffd);
+             Open qadspffd;
+e001      EndIf;
+
+b001      If Not %Open(qafdjoin);
+             Open qafdjoin;
+e001      EndIf;
+
+          Read qwhdrffd;
+b001      Dow Not %Eof(qadspffd);
+
+             whfile = ConvertFieldName(whfile: @DataBase: 'FILENAME');
+             whfldi = ConvertFieldName(whfldi: @DataBase: 'FIELDNAME');
+             whflde = ConvertFieldName(whflde: @DataBase: 'FIELDNAME');
+b002         If @FileName = *Blanks;
+                @FileName = whfile;
+e002         EndIf;
+
+b002         If whjref = *Zeros;
+                whjref = 1;
+e002         EndIf;
+
+             %Occur(@FieldsDs) = whjref;
+             @OccurInUse(whjref) = *On;
+             @FieldsDs.@FldIndx += 1;
+b002         If whmap = @Yes;
+                @FieldsDs.@FieldName(@FieldsDs.@FldIndx) = whflde;
+                @FieldsDs.@MapField(@FieldsDs.@FldIndx)  = whfldi;
+x002         Else;
+                @FieldsDs.@FieldName(@FieldsDs.@FldIndx) = whfldi;
+                @FieldsDs.@MapField(@FieldsDs.@FldIndx)  = whflde;
+e002         EndIf;
+             @FieldsDs.@Map(@FieldsDs.@FldIndx ) = whmap;
+             @FieldsDs.@Maps(@FieldsDs.@FldIndx) = whmaps;
+             @FieldsDs.@Mapl(@FieldsDs.@FldIndx) = whmapl;
+
+             @OccurIdx += 1;
+             @File#(@OccurIdx)  = whjref;
+             @Fields(@OccurIdx) = whflde;
+
+             Read qwhdrffd;
+
+e001      EndDo;
+
+          Read qwhfdjn;
+b001      Dow Not %Eof(qafdjoin);
+
+             jndnam = ConvertFieldName(jndnam: @DataBase: 'FILENAME');
+             jnjfnm = ConvertFieldName(jnjfnm: @DataBase: 'FILENAME');
+             jnjtnm = ConvertFieldName(jnjtnm: @DataBase: 'FILENAME');
+             jnjfd1 = ConvertFieldName(jnjfd1: @DataBase: 'FIELDNAME');
+             jnjfd2 = ConvertFieldName(jnjfd2: @DataBase: 'FIELDNAME');
+
+b002         If jndial = *Zeros;
+                jndial = 1;
+e002         EndIf;
+
+b002         For @FilesIdx = 1 to @OccurIdx;
+b003            If  @File#(@FilesIdx) = jndial
+                And @Files(@FilesIdx) = *Blanks;
+b004               If jndnam <> *Blanks;
+                      @Files(@FilesIdx) = jndnam;
+x004               Else;
+                      @Files(@FilesIdx) = @FileName;
+e004               EndIf;
+e003            EndIf;
+e002         EndFor;
+
+b002         If jndial = 1;
+                %Occur(@FieldsDs)   = jndial;
+b003            If jndial = 1;
+                   @FieldsDs.@FileName = jndnam;
+x003            Else;
+b004               If  @DataBase = @MSSQL;
+                      @FieldsDs.@FileName = mbbof;
+x004               Else;
+                      @FieldsDs.@FileName = jnfile;
+e004               EndIf;
+e003            EndIf;
+                @FieldsDs.@FromFile = jnjfnm;
+                @FieldsDs.@ToFile   = jnjtnm;
+b003            If @Occurances = *Zeros;
+                   @Occurances = 1;
+e003            EndIf;
+
+x002         Else;
+
+                %Occur(@FieldsDs)   = jndial;
+                @FieldsDs.@JFldIndx += 1;
+                @FieldsDs.@FileName = jndnam;
+                @FieldsDs.@FromFile = jnjfnm;
+                @FieldsDs.@ToFile   = jnjtnm;
+                @FieldsDs.@FrJoinField(@FieldsDs.@JFldIndx) = jnjfd1;
+                @FieldsDs.@ToJoinField(@FieldsDs.@JFldIndx) = jnjfd2;
+b003            If @Occurances = *Zeros
+                Or @Occurances < jndial;
+                   @Occurances = jndial;
+e003            EndIf;
+
+e002         EndIf;
+
+             Read qwhfdjn;
+e001      EndDo;
+
+b001      If @Occurances = *Zeros;
+             @Occurances = 1;
+e001      EndIf;
+
+          Close qafdmbr;
+          Close qafdjoin;
+          Close qadspffd;
+
+          Return @FieldsDs;
+
+š         End-Proc;
+
+š         Dcl-Proc BuildIncludeLine Export;
+
+          Dcl-Pi BuildIncludeLine;
+          End-Pi;
+
+š         End-Proc;
+
+š         Dcl-Proc WriteALine Export;
+
+          Dcl-Pi WriteALine;
+             @srcdtams Like(srcdta) Const;
+             @srcdtamy Like(srcdta) Const;
+             @srcdtaor Like(srcdta) Const;
+             @srcdtaib Like(srcdta) Const;
+          End-Pi;
+
+          Dcl-Ds @SourceDsMS ExtName('QSQLSRC') Prefix(@MS_) End-Ds;
+          Dcl-Ds @SourceDsMY ExtName('QSQLSRC') Prefix(@MY_) End-Ds;
+          Dcl-Ds @SourceDsOR ExtName('QSQLSRC') Prefix(@OR_) End-Ds;
+          Dcl-Ds @SourceDsIB ExtName('QSQLSRC') Prefix(@IB_) End-Ds;
+
+b001      If Not %Open(qsqlsrcms);
+             Open qsqlsrcms;
+e001      EndIf;
+
+b001      If Not %Open(qsqlsrcmy);
+             Open qsqlsrcmy;
+e001      EndIf;
+
+b001      If Not %Open(qsqlsrcor);
+             Open qsqlsrcor;
+e001      EndIf;
+
+b001      If Not %Open(qsqlsrcib);
+             Open qsqlsrcib;
+e001      EndIf;
+
+          Write qsqlsrcms @SourceDsMS;
+
+          Write qsqlsrcmy @SourceDsMY;
+
+          Write qsqlsrcor @SourceDsOR;
+
+          Write qsqlsrcib @SourceDsIB;
+
+š         End-Proc;
+
+** special fields Oracle
+add
+time
+number
+date
+order
+row
+comment
+option
+user
+file
+for
+group
+** special fields Microsoft SQL Server
+add
+order
+option
+user
+case
+bulk
+primary
+percent
+file
+break
+for
+top
+use
+group
+trigger
+plan
+desc
+key
+** Signs
+EQ=
+NE<>
+GT>
+LT<
+GE>=
+LE<=
+** OSigns
+EQ<>
+NE=
+GT<
+LT>
+GE<=
+LE>=

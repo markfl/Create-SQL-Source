@@ -1,0 +1,74 @@
+             PGM        PARM(&FILE &LIBRARY)
+
+             DCLF       FILE(QADSPDBR)
+
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&LIBRARY) TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&MSGID) TYPE(*CHAR) LEN(7)
+
+             DLTF       FILE(QTEMP/QADSPDBR)
+             MONMSG     MSGID(CPF0000)
+             DLTF       FILE(QTEMP/QAFDACCP)
+             MONMSG     MSGID(CPF0000)
+             DLTF       FILE(QTEMP/QAFDSELO)
+             MONMSG     MSGID(CPF0000)
+             DLTF       FILE(QTEMP/QAFDRFMT)
+             MONMSG     MSGID(CPF0000)
+             DLTF       FILE(QTEMP/QAFDJOIN)
+             MONMSG     MSGID(CPF0000)
+             DLTF       FILE(QTEMP/QAFDBASI)
+             MONMSG     MSGID(CPF0000)
+
+             DSPDBR     FILE(&LIBRARY/&FILE) OUTPUT(*OUTFILE) +
+                          OUTFILE(QTEMP/QADSPDBR) OUTMBR(*FIRST *ADD)
+             DSPFD      FILE(&LIBRARY/&FILE) TYPE(*ACCPTH) +
+                          OUTPUT(*OUTFILE) OUTFILE(QTEMP/QAFDACCP) +
+                          OUTMBR(*FIRST *ADD)
+             DSPFD      FILE(&LIBRARY/&FILE) TYPE(*BASATR) +
+                          OUTPUT(*OUTFILE) FILEATR(*PF) +
+                          OUTFILE(QTEMP/QAFDBASI) OUTMBR(*FIRST *ADD)
+
+             OVRDBF     FILE(QADSPDBR) TOFILE(QTEMP/QADSPDBR)
+
+             RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&MSGID)
+
+/* b01 */    DOWHILE    COND(&MSGID *NE CPF0864)
+
+/* b02 */    IF         COND(&WHREFI *NE &FILE) THEN(DO)
+
+             DSPFFD     FILE(&WHRELI/&WHREFI) OUTPUT(*OUTFILE) +
+                          OUTFILE(QTEMP/QADSPFFD) OUTMBR(*FIRST *ADD)
+
+             DSPFD      FILE(&WHRELI/&WHREFI) TYPE(*ACCPTH) +
+                          OUTPUT(*OUTFILE) OUTFILE(QTEMP/QAFDACCP) +
+                          OUTMBR(*FIRST *ADD)
+
+             DSPFD      FILE(&WHRELI/&WHREFI) TYPE(*RCDFMT) +
+                          OUTPUT(*OUTFILE) OUTFILE(QTEMP/QAFDRFMT) +
+                          OUTMBR(*FIRST *ADD)
+
+             DSPFD      FILE(&WHRELI/&WHREFI) TYPE(*SELECT) +
+                          OUTPUT(*OUTFILE) FILEATR(*LF) +
+                          OUTFILE(QTEMP/QAFDSELO) OUTMBR(*FIRST *ADD)
+
+             DSPFD      FILE(&WHRELI/&WHREFI) TYPE(*JOIN) +
+                          OUTPUT(*OUTFILE) OUTFILE(QTEMP/QAFDJOIN) +
+                          OUTMBR(*FIRST *ADD)
+             MONMSG     MSGID(CPF0000)
+
+             DSPFD      FILE(&WHRELI/&WHREFI) TYPE(*BASATR) +
+                          OUTPUT(*OUTFILE) FILEATR(*LF) +
+                          OUTFILE(QTEMP/QAFDBASI) OUTMBR(*FIRST *ADD)
+
+/* e02 */    ENDDO
+
+ AGAIN:      RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&MSGID)
+
+/* e01 */    ENDDO
+
+             ENDPGM

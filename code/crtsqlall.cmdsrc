@@ -1,0 +1,9 @@
+             CMD        PROMPT('Create SQL Source')
+
+             PARM       KWD(LIBRARY) TYPE(*NAME) MIN(1) +
+                          PROMPT('Library')
+
+             PARM       KWD(TODATABASE) TYPE(*CHAR) LEN(7) +
+                          RSTD(*YES) DFT(*MSSQL) VALUES(*MSSQL +
+                          *ORACLE *MYSQL *DB2) PROMPT('To Database')
+

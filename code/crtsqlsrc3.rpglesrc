@@ -1,0 +1,137 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+     Fqafdaccp  ip   e             Disk
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          /copy qcpysrc,crtsqlsrcf
+
+          Dcl-Pi crtsqlsrc3;
+             @DataBase   Char(7);
+             @#records   Packed(10:0);
+             @Dropmember Char(10);
+             @Inc        Ind Options(*NoPass);
+          End-Pi;
+
+          /define crtsrcd01
+          /define crtsrcd02
+          /define crtsrcd03
+          /define crtsrcd04
+          /define crtsrcd05
+          /define crtsrcd06
+          /define crtsrcd07
+          /define crtsrcd08
+          /define crtsrcd09
+          /define crtsrcd10
+          /define crtsrcd13
+          /define crtsrcd14
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd02
+          /undefine crtsrcd03
+          /undefine crtsrcd04
+          /undefine crtsrcd05
+          /undefine crtsrcd06
+          /undefine crtsrcd07
+          /undefine crtsrcd08
+          /undefine crtsrcd09
+          /undefine crtsrcd10
+          /undefine crtsrcd13
+          /undefine crtsrcd14
+
+          Dcl-s @SubCount Packed(5:0) Inz(*Zeros);
+          Dcl-c @Yes Const('Y');
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+     Iqwhfdacp
+     I                                          apfile        l1
+
+b001      If *Inl1;
+
+             apfile = ConvertFieldName(apfile: @DataBase: 'FILENAME');
+             apbof  = ConvertFieldName(apbof : @DataBase: 'FILENAME');
+             apkeyf = ConvertFieldName(apkeyf: @DataBase: 'FIELDNAME');
+             @Inc = *On;
+b002         If @DataBase = @MSSQL;
+                srcseq += .01;
+                srcdat = *Zeros;
+                srcdta = 'go';
+                Write qsqlsrc @SourceDs;
+e002         EndIf;
+             srcseq += .01;
+             srcdat = *Zeros;
+b002         If @DataBase = @Oracle;
+                srcdta = 'create or replace force view ' + %Trim(apfile);
+x002         Else;
+                srcdta = 'create view ' + %Trim(apfile);
+e002         EndIf;
+             Write qsqlsrc @SourceDs;
+             srcseq += .01;
+b002         If @DataBase = @MSSQL;
+                srcdta = 'with schemabinding as';
+x002         Else;
+                srcdta = 'as';
+e002         EndIf;
+             Write qsqlsrc @SourceDs;
+             srcseq += .01;
+             srcdta = 'Select';
+             Write qsqlsrc @SourceDs;
+             Exec SQL Select Count(*) Into :@SubCount
+             from qadspffd where whmap = 'Y';
+b002         If @SubCount > *Zeros;
+                CheckForSubStringFields(@DataBase: @AliasDs);
+x002         Else;
+                Fields(@FieldsDs: 1 : *Off : 1: @DataBase: @AliasDs);
+e002         EndIf;
+
+b002         If @DataBase = @MSSQL;
+
+                srcdta = 'From dbo.' + %Trim(apbof);
+                Write qsqlsrc @SourceDs;
+
+x002         Else;
+
+                srcdta = 'From ' + %Trim(apbof);
+                Write qsqlsrc @SourceDs;
+
+e002         EndIf;
+
+             Clear srcdta;
+             WhereClause(@DataBase: *Off: @Fields: @Files: @AliasDs);
+             Clear srcdta;
+b002         If @DataBase = @Oracle;
+                OrderByClause(@DataBase);
+e002         EndIf;
+             Clear srcdta;
+
+e001      EndIf;
+
+     Cl1                 If        @Inc
+             srcdta  = %Trim(srcdta) + ';';
+             srcseq += .01;
+             Write qsqlsrc @SourceDs;
+             @#records = srcseq;
+e001      EndIf;
+
+          BegSr *Inzsr;
+
+             @Inc = *Off;
+
+b001         If Not CheckRecordLength(@DataBase);
+                *Inlr = *On;
+                Return;
+e001         EndIf;
+
+b001         If @#Records < 9999;
+                srcseq = @#records;
+x001         Else;
+                srcseq = *Zeros;
+e001         EndIf;
+
+             DeleteComp();
+
+          /copy qcpysrc,crtsqlsrcc
+          // @FieldsDs = BuildFieldArray(@Database);
+
+          EndSr;
+

@@ -1,0 +1,161 @@
+             PGM        PARM(&FILE &DATABASE &DATABASENM &CRTSRCFILE +
+                          &CRTSRCMBR &CRTDROPMBR)
+
+             DCLF       FILE(QADSPDBR)
+
+             DCL        VAR(&FILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&DATABASE) TYPE(*CHAR) LEN(7)
+             DCL        VAR(&DATABASENM) TYPE(*CHAR) LEN(15)
+             DCL        VAR(&CRTSRCFILE) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&CRTSRCMBR) TYPE(*CHAR) LEN(20)
+             DCL        VAR(&CRTDROPMBR) TYPE(*CHAR) LEN(20)
+
+             DCL        VAR(&FROMFILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&FROMLIB) TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&TOSRCFILE) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&TOSRCLIB) TYPE(*CHAR) LEN(10)
+
+             DCL        VAR(&MEMBER) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&MBROPT) TYPE(*CHAR) LEN(8)
+             DCL        VAR(&DROPMBR) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DROPOPT) TYPE(*CHAR) LEN(8)
+
+             DCL        VAR(&NBRCURRCD) TYPE(*DEC) LEN(10 0) VALUE(0)
+             DCL        VAR(&INCLUDE) TYPE(*LGL)
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+             CHGJOB     SWS(00000000)
+
+             CHGVAR     VAR(&FROMFILE) VALUE(%SST(&FILE 1 10))
+             CHGVAR     VAR(&FROMLIB) VALUE(%SST(&FILE 11 10))
+/* b01 */    IF         COND(&FROMLIB *EQ *CURLIB) THEN(DO)
+             CHGVAR     VAR(&FROMLIB) VALUE(&CURLIB)
+/* e01 */    ENDDO
+
+             CHGVAR     VAR(&TOSRCFILE) VALUE(%SST(&CRTSRCFILE 1 10))
+             CHGVAR     VAR(&TOSRCLIB) VALUE(%SST(&CRTSRCFILE 11 10))
+/* b01 */    IF         COND(&TOSRCLIB *EQ *CURLIB) THEN(DO)
+             CHGVAR     VAR(&TOSRCLIB) VALUE(&CURLIB)
+/* e01 */    ENDDO
+
+             CHGVAR     VAR(&MEMBER) VALUE(%SST(&CRTSRCMBR 3 10))
+             CHGVAR     VAR(&MBROPT) VALUE(%SST(&CRTSRCMBR 13 8))
+
+             CHGVAR     VAR(&DROPMBR) VALUE(%SST(&CRTDROPMBR 3 10))
+             CHGVAR     VAR(&DROPOPT) VALUE(%SST(&CRTDROPMBR 13 8))
+
+             CLRPFM     FILE(CRTSQLP)
+             MONMSG     MSGID(CPF0000)
+
+/* b01 */    IF         COND(&MBROPT *EQ *REPLACE) THEN(DO)
+             CLRPFM     FILE(BLDSQL)
+             MONMSG     MSGID(CPF0000)
+             RMVM       FILE(&TOSRCLIB/&TOSRCFILE) MBR(&MEMBER)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+/* b01 */    IF         COND(&DROPOPT *EQ *REPLACE) THEN(DO)
+             RMVM       FILE(&TOSRCLIB/&TOSRCFILE) MBR(&DROPMBR)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+             CALL       PGM(BLDSQLR1) PARM(&FROMFILE &INCLUDE)
+/* b01 */    IF         COND(&INCLUDE) THEN(DO)
+
+             CRTSQLSRC  FILE(&FROMLIB/&FROMFILE) +
+                          TODATABASE(&DATABASE) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(&MEMBER *ADD) DROPMBR(*NONE)
+
+             CRTSQLSRC  FILE(&FROMLIB/&FROMFILE) +
+                          TODATABASE(&DATABASE) +
+                          DATABASE(&DATABASENM) ACTION(*INDEX) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(&MEMBER *ADD) DROPMBR(&DROPMBR *ADD)
+
+             DLTF       FILE(QTEMP/QADSPDBR)
+             MONMSG     MSGID(CPF0000)
+
+             DSPDBR     FILE(&FROMLIB/&FROMFILE) OUTPUT(*OUTFILE) +
+                          OUTFILE(QTEMP/QADSPDBR)
+             MONMSG     MSGID(CPF0000)
+
+             OVRDBF     FILE(QADSPDBR) TOFILE(QTEMP/QADSPDBR)
+
+             RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* b02 */    DOWHILE    COND(&@MSGID *NE CPF0864)
+
+/* b03 */    IF         COND(&WHREFI *NE ' ') THEN(DO)
+
+             CALL       PGM(BLDSQLR1) PARM(&WHREFI &INCLUDE)
+/* b04 */    IF         COND(&INCLUDE) THEN(DO)
+
+             CRTSQLSRC  FILE(&WHRELI/&WHREFI) TODATABASE(&DATABASE) +
+                          DATABASE(&DATABASENM) ACTION(*VIEW) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(&MEMBER *ADD) DROPMBR(*NONE)
+
+             CRTSQLSRC  FILE(&WHRELI/&WHREFI) TODATABASE(&DATABASE) +
+                          DATABASE(&DATABASENM) ACTION(*INDEX) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(&MEMBER *ADD) DROPMBR(&DROPMBR *ADD)
+
+             CRTSQLSRC  FILE(&WHRELI/&WHREFI) TODATABASE(&DATABASE) +
+                          DATABASE(&DATABASENM) ACTION(*VIEW) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(*NONE) DROPMBR(&DROPMBR *ADD)
+
+/* e04 */    ENDDO
+/* e03 */    ENDDO
+
+ AGAIN:      RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* e02 */    ENDDO
+
+             DLTOVR     FILE(*ALL)
+
+             CRTSQLSRC  FILE(&FROMLIB/&FROMFILE) +
+                          TODATABASE(&DATABASE) +
+                          DATABASE(&DATABASENM) +
+                          SRCFILE(&TOSRCLIB/&TOSRCFILE) +
+                          SRCMBR(*NONE) DROPMBR(&DROPMBR *ADD)
+/* e01 */    ENDDO
+
+             CHGVAR     VAR(&NBRCURRCD) VALUE(0)
+             RTVMBRD    FILE(&TOSRCLIB/&TOSRCFILE) MBR(&MEMBER) +
+                          NBRCURRCD(&NBRCURRCD)
+             MONMSG     MSGID(CPF0000)
+/* b01 */    IF         COND(&NBRCURRCD > 2) THEN(DO)
+             RGZPFM     FILE(&TOSRCLIB/&TOSRCFILE) MBR(&MEMBER) +
+                          SRCOPT(*SEQNBR)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+/* b01 */    ELSE       CMD(DO)
+             RMVM       FILE(&TOSRCLIB/&TOSRCFILE) MBR(&MEMBER)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+             CHGVAR     VAR(&NBRCURRCD) VALUE(0)
+             RTVMBRD    FILE(&TOSRCLIB/&TOSRCFILE) MBR(&DROPMBR) +
+                          NBRCURRCD(&NBRCURRCD)
+             MONMSG     MSGID(CPF0000)
+/* b01 */    IF         COND(&NBRCURRCD > 0) THEN(DO)
+             RGZPFM     FILE(&TOSRCLIB/&TOSRCFILE) MBR(&DROPMBR) +
+                          SRCOPT(*SEQNBR)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+/* b01 */    ELSE       CMD(DO)
+             RMVM       FILE(&TOSRCLIB/&TOSRCFILE) MBR(&DROPMBR)
+             MONMSG     MSGID(CPF0000)
+/* e01 */    ENDDO
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

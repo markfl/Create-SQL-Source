@@ -1,0 +1,231 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+          Dcl-f qafdaccp Usage(*Input) UsrOpn;
+          Dcl-f qafdbasi Usage(*Input);
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          Dcl-Pi crtsqlsrc2;
+             @DataBase    Char(7) Const;
+             @#records    Packed(10:0);
+             @SelectCount Packed(5:0);
+             @Inc         Ind Options(*NoPass);
+          End-Pi;
+
+          /DEFINE crtsrcd01
+          /DEFINE crtsrcd08
+          /DEFINE crtsrcd10
+          /DEFINE crtsrcd11
+          /DEFINE crtsrcd12
+          /copy qcpysrc,crtsqlsrcd
+          /UNDEFINE crtsrcd01
+          /UNDEFINE crtsrcd08
+          /UNDEFINE crtsrcd10
+          /UNDEFINE crtsrcd11
+          /UNDEFINE crtsrcd12
+
+          Dcl-s @NewFile   Ind          Inz(*Off);
+          Dcl-s @Count     Packed(5:0)  Inz(*Zeros);
+          Dcl-s @a         Packed(3:0)  Inz(*Zeros);
+          Dcl-s @b         Packed(3:0)  Inz(*Zeros);
+          Dcl-s @KeyFields Char(10)     Inz(*Blanks) Dim(100);
+          Dcl-c @Yes                    Const('Y');
+          Dcl-s @WriteLast Ind          Inz(*Off);
+          Dcl-s @apfile    Like(apfile) Inz(*Blanks);
+          Dcl-s @apnkyf    Like(apnkyf) Inz(*Zeros);
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+          Open qafdaccp;
+          Read qwhfdacp;
+b001      Dow Not %Eof(qafdaccp);
+
+             apfile = ConvertFieldName(apfile: @DataBase: 'FILENAME');
+
+b002         If @apfile = *Blanks
+             Or @apfile <> apfile;
+                *Inl1 = *On;
+                @WriteLast = *On;
+b002            If  @apfile <> *Blanks
+                And @apnkyf >  *Zeros;
+                   Clear srcdta;
+                   srcdta  = %Trim(srcdta) + ');';
+                   srcseq += .01;
+                   Write qsqlsrc @SourceDs;
+                   @WriteLast = *Off;
+e002            EndIf;
+b003            If @DataBase = @MSSQL;
+                   Clear srcdta;
+                   srcdta = 'go';
+                   Write qsqlsrc @SourceDs;
+e003            EndIf;
+e002         EndIf;
+
+b002         If apnkyf > *Zeros;
+                @a = %LookUp(apkeyf:@KeyFields);
+b003            If @a = *Zeros;
+                   @b += 1;
+                   @KeyFields(@b) = apkeyf;
+b004               If %Parms() >= 4;
+                      @Inc = *On;
+e004               EndIf;
+                   apbof  = ConvertFieldName(apbof : @DataBase: 'FILENAME');
+                   apkeyf = ConvertFieldName(apkeyf: @DataBase: 'FIELDNAME');
+b004               If *inl1;
+                      Reset @Count;
+                      @NewFile = *On;
+                      srcseq += .01;
+                      srcdat = *Zeros;
+b005                  If apuniq = 'Y';
+b006                     If  @DataBase    = @MSSQL
+                         And @SelectCount > *Zeros
+                         Or  @DataBase    = @MSSQL
+                         And atjoin       = @Yes;
+                            srcdta = 'create unique clustered index '
+                                   + %Trim(apfile);
+x006                     Else;
+                            srcdta = 'create unique index '
+                                   + %Trim(apfile);
+e006                     EndIf;
+x005                  Else;
+b006                     If  @DataBase    = @MSSQL
+                         And @SelectCount > *Zeros
+                         Or  @DataBase    = @MSSQL
+                         And atjoin       = @Yes;
+                            srcdta = 'create unique clustered index '
+                                   + %Trim(apfile);
+x006                     Else;
+                            srcdta = 'create index ' + %Trim(apfile);
+e006                     EndIf;
+e005                  EndIf;
+                      Write qsqlsrc @SourceDs;
+                      srcseq += .01;
+                      srcdat = *Zeros;
+b005                  If apftyp = 'P';
+                         srcdta = 'on ' + %Trim(apfile) + ' (';
+x005                  Else;
+b006                     If  @SelectCount =  *Zeros
+                         And atjoin       <> @Yes;
+                            srcdta = 'on ' + %Trim(apbof) + ' (';
+x006                     Else;
+                            srcdta = 'on ' + %Trim(apfile) + ' (';
+e006                     EndIf;
+e005                  EndIf;
+                      Write qsqlsrc @SourceDs;
+e004               EndIf;
+                   @Count += 1;
+                   srcseq += .01;
+                   srcdat = *Zeros;
+b004               If @NewFile;
+                      srcdta = %Trim(apkeyf);
+b005                  If apkseq = 'D';
+                         srcdta = %Trim(srcdta) + ' desc';
+e005                  EndIf;
+x004               Else;
+b005                  If @Count <= 16;
+                         srcdta = ',' + %Trim(apkeyf);
+b006                     If apkseq = 'D';
+                            srcdta = %Trim(srcdta) + ' desc';
+e006                     EndIf;
+x005                  Else;
+b006                     If apkseq = 'D';
+                            srcdta = '/* ,' + %Trim(apkeyf) + ' desc */';
+x006                     Else;
+                            srcdta = '/* ,' + %Trim(apkeyf) + ' */';
+e006                     EndIf;
+e005                  EndIf;
+e004               EndIf;
+
+                   Write qsqlsrc @SourceDs;
+                   @NewFile = *Off;
+x003            Else;
+e003            EndIf;
+e002         EndIf;
+
+             @apfile = apfile;
+             @apnkyf = apnkyf;
+             *Inl1   = *Off;
+
+             Read qwhfdacp;
+
+e001      EndDo;
+
+          Close qafdaccp;
+
+b001      If  @WriteLast
+          And apnkyf > *Zeros;
+             Clear srcdta;
+             srcdta = ')';
+             srcdta  = %Trim(srcdta) + ';';
+             srcseq += .01;
+             Write qsqlsrc @SourceDs;
+e001      EndIf;
+
+          @#records = srcseq;
+
+b001      If @DataBase = @Oracle
+          Or @DataBase = @MYSQL;
+             AddIndexToCheck(@DataBase);
+e001      EndIf;
+
+          *Inlr = *On;
+          Return;
+
+          BegSr *Inzsr;
+
+b001         If @DataBase = @Oracle
+             Or @DataBase = @MYSQL;
+b002            If Not  CheckForValidIndex(@DataBase);
+                   *Inlr = *On;
+                   @Inc  = *Off;
+                   Return;
+e002            EndIf;
+e001         EndIf;
+
+b001         If Not CheckRecordLength(@DataBase);
+                *Inlr = *On;
+                @Inc  = *Off;
+                Return;
+e001         EndIf;
+
+b001         If Not CheckFileLength(@DataBase);
+                *Inlr = *On;
+                @Inc  = *Off;
+                Return;
+e001         EndIf;
+
+b001         If @#Records < 9999;
+                srcseq = @#records;
+x001         Else;
+                srcseq = *Zeros;
+e001         EndIf;
+
+b001         If %Parms() >= 4;
+                @Inc = *Off;
+e001         EndIf;
+
+             srcseq = *Zeros;
+             Read qwhfdbas;
+b001         If Not %Eof(qafdbasi)
+             And atjoin = @Yes
+             Or Not %Eof(qafdbasi)
+             And atnofm > 1;
+b002            If  @DataBase <> @MSSQL;
+                   *Inlr = *On;
+                   Return;
+e002            EndIf;
+e001         EndIf;
+
+             // Check for substring fields
+             Exec SQL Select Count(*) Into :@SelectCount
+             from qadspffd where whmap = 'Y';
+
+b001         If @SelectCount = *Zeros;
+
+                // Check for substring fields
+                Exec SQL Select Count(*) Into :@SelectCount
+                from qafdselo where sofld <> ' ';
+
+e001         EndIf;
+
+          EndSr;
+

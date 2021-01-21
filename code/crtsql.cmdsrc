@@ -1,0 +1,41 @@
+             CMD        PROMPT('Create SQL Source Tbl View IDX')
+
+             PARM       KWD(FILE) TYPE(FILE) MIN(1) PROMPT('File')
+ FILE:       QUAL       TYPE(*NAME) MIN(1)
+             QUAL       TYPE(*NAME) DFT(*LIBL) SPCVAL((*LIBL) +
+                          (*CURLIB)) CHOICE(*NONE) PROMPT('Library')
+
+             PARM       KWD(TODATABASE) TYPE(*CHAR) LEN(7) +
+                          RSTD(*YES) DFT(*MSSQL) VALUES(*MSSQL +
+                          *ORACLE *MYSQL *DB2) PROMPT('To Database')
+
+             PARM       KWD(DATABASE) TYPE(*CHAR) LEN(15) +
+                          DFT('HUBGroupTPS') CASE(*MIXED) +
+                          PROMPT('Database name')
+
+             PARM       KWD(SRCFILE) TYPE(SRCFILE) PROMPT('Create +
+                          source File')
+ SRCFILE:    QUAL       TYPE(*NAME) DFT(QSQLSRC)
+             QUAL       TYPE(*NAME) DFT(*CURLIB) SPCVAL((*LIBL) +
+                          (*USRLIBL) (*CURLIB)) CHOICE(*NONE) +
+                          PROMPT('Library')
+
+             PARM       KWD(SRCMBR) TYPE(SRCMBR) CHOICE(*NONE) +
+                          PROMPT('Output member options')
+
+ SRCMBR:     ELEM       TYPE(*NAME) DFT(*FIRST) SPCVAL((*FIRST) +
+                          (*FILE)) PROMPT('Member to receive output')
+             ELEM       TYPE(*CHAR) LEN(8) RSTD(*YES) DFT(*REPLACE) +
+                          VALUES(*REPLACE *ADD) CHOICE(*NONE) +
+                          PROMPT('Replace or add records')
+
+             PARM       KWD(DROPMBR) TYPE(DROPMBR) CHOICE(*NONE) +
+                          PROMPT('Output member *DROP options')
+
+ DROPMBR:    ELEM       TYPE(*NAME) DFT(*FIRST) SPCVAL((*FIRST) +
+                          (*FILE)) PROMPT('Member to receive *DROP +
+                          output')
+             ELEM       TYPE(*CHAR) LEN(8) RSTD(*YES) DFT(*REPLACE) +
+                          VALUES(*REPLACE *ADD) CHOICE(*NONE) +
+                          PROMPT('Replace or add records')
+

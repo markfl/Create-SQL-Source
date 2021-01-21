@@ -1,0 +1,150 @@
+
+         /IF DEFINED(CRTSRCD01)
+
+         Dcl-c @MSSQL  Const('*MSSQL');
+         Dcl-c @Oracle Const('*ORACLE');
+         Dcl-c @MYSQL  Const('*MYSQL');
+         Dcl-c @DB2    Const('*DB2');
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD02)
+
+         Dcl-s  @Occurs     Packed(3:0)      Inz(%Elem(@OccurInUse));
+         Dcl-s  @Occurances Packed(3:0)      Inz(*Zeros);
+         Dcl-s  @OccurInUse Ind Inz(*Off)    Dim(700);
+         Dcl-Ds @FieldsDs   LikeDs(@FieldDs) Occurs(700);
+         Dcl-Ds @AliasDs    LikeDs(@AliasFields);
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD03)
+
+         Dcl-s @OccurIdx Packed(3:0) Inz(*Zeros);
+         Dcl-s @FilesIdx Packed(3:0) Inz(*Zeros);
+         Dcl-s @Files    Char(10)    Inz(*Blanks) Dim(700);
+         Dcl-s @File#    Zoned(2:0)  Inz(*Zeros)  Dim(700);
+         Dcl-s @Fields   Char(10)    Inz(*Blanks) Dim(700);
+         Dcl-s @FileName Char(10)    Inz(*Blanks);
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD04)
+
+         Dcl-Ds @FieldDs Qualified;
+            @FldIndx     Packed(3:0) Inz(*Zeros);
+            @JFldIndx    Packed(3:0) Inz(*Zeros);
+            @FileName    Char(10)    Inz(*Blanks);
+            @FromFile    Char(10)    Inz(*Blanks);
+            @ToFile      Char(10)    Inz(*Blanks);
+            @FrJoinField Char(10)    Inz(*Blanks) Dim(99);
+            @ToJoinField Char(10)    Inz(*Blanks) Dim(99);
+            @FieldName   Char(10)    Inz(*Blanks) Dim(700);
+            @MapField    Char(10)    Inz(*Blanks) Dim(700);
+            @Map         Char(1)     Inz(*Blanks) Dim(700);
+            @Maps        Zoned(5:0)  Inz(*Zeros)  Dim(700);
+            @Mapl        Zoned(5:0)  Inz(*Zeros)  Dim(700);
+         End-Ds;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD05)
+
+         Dcl-Pr Fields;
+            *n LikeDs(@FieldDs) Const;
+            *n Packed(3:0)      Const;
+            *n Ind              Const;
+            *n Packed(3:0)      Const;
+            *n Char(7)          Const;
+            *n LikeDs(@AliasFields);
+         End-Pr;
+
+         Dcl-Pr DeleteComp;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD06)
+
+         Dcl-Pr CheckForSubstringFields;
+            *n Char(7) Const;
+            *n LikeDs(@AliasFields);
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD07)
+
+         Dcl-Pr OrderByClause;
+            *n Char(7) Const;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD08)
+
+         Dcl-Pr ConvertFieldName Char(10);
+            *n Char(10) Const;
+            *n Char(7)  Const;
+            *n Char(10) Const;
+        End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD09)
+
+         Dcl-Pr WhereClause;
+            *n Char(7)  Const;
+            *n Ind      Const;
+            *n Char(10) Const Dim(700);
+            *n Char(10) Const Dim(700);
+            *n LikeDs(@AliasFields) Const;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD10)
+
+         Dcl-Pr CheckRecordLength Ind;
+            *n Char(7) Const;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD11)
+
+         Dcl-Pr CheckFileLength Ind;
+            *n Char(7) Const;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD12)
+
+          Dcl-Pr CheckForValidIndex Ind;
+             *n Char(7) Const;
+          End-Pr;
+
+          Dcl-Pr AddIndexToCheck;
+             *n Char(7) Const;
+          End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD13)
+
+         Dcl-Pr BuildFieldArray LikeDs(@FieldsDs);
+            *n Char(7) Const;
+         End-Pr;
+
+         /ENDIF
+
+         /IF DEFINED(CRTSRCD14)
+
+         Dcl-Ds @AliasFields Qualified;
+            @SSFldName   Char(50)    Inz(*Blanks) Dim(700);
+            @Alias       Char(10)    Inz(*Blanks) Dim(700);
+         End-Ds;
+
+         /ENDIF
+

@@ -1,0 +1,92 @@
+          Ctl-opt Option(*NoDebugIO) DftActGrp(*No) BndDir('MFLORES');
+
+     Fqafdaccp  ip   e             Disk
+          Dcl-f qafdbasi Usage(*Input);
+          Dcl-f qafdrfmt Usage(*Input);
+
+          /define crtsrcd01
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+
+          Dcl-Pi crtsqlsrc6;
+             @DataBase Char(7);
+             @Action   Char(7);
+             @Include  Ind;
+             @Join     Ind;
+          End-Pi;
+
+          Dcl-s @Count1 Packed(5:0) Inz(*Zeros);
+          Dcl-s @Count2 Packed(5:0) Inz(*Zeros);
+          Dcl-c @Yes                Const('Y');
+
+     Iqwhfdacp
+     I                                          apfile        l1
+
+b001      If *Inl1;
+
+             @Join    = *Off;
+             @Include = *Off;
+
+             Read qwhfdbas;
+b002         If Not %Eof(qafdbasi)
+             And atjoin <> @Yes;
+
+                // Check for substring fields
+                Exec SQL Select Count(*) Into :@Count1
+                from qadspffd where whmap = 'Y';
+b003            If  @Count1 > *Zeros
+                And @Action = '*VIEW';
+                   @Include = *On;
+x003            Else;
+
+                   // Check for select/omit fields
+                   Exec SQL Select Count(*) Into :@Count2
+                   from qafdselo where sonrul > 0;
+b004               If  @Count2 > *Zeros
+                   And @Action = '*VIEW';
+                      @Include = *On;
+e004               EndIf;
+e003            EndIf;
+x002         Else;
+                @Join   = *On;
+e002         EndIf;
+
+             Read qwhfdfmt;
+b002         If Not %Eof(qafdrfmt)
+             And rftotf > 1;
+                @Include = *Off;
+                *Inlr    = *On;
+                Return;
+e002         EndIf;
+
+b002         If @Include;
+                // Check for key fields
+b003            If apnkyf = *Zeros;
+                   @Include = *Off;
+                   *Inlr    = *On;
+                   Return;
+x003            Else;
+b004               If  @DataBase = @Oracle
+                   And @Action   = '*INDEX';
+                      @Include = *Off;
+                      *Inlr    = *On;
+                      Return;
+e004               EndIf;
+e003            EndIf;
+x002         Else;
+                // Check for key fields
+b003            If  apnkyf     > *Zeros
+                And @Action    = '*INDEX';
+                   @Include = *On;
+b004               If @DataBase = @Oracle;
+b005                  If @Count1 > *Zeros
+                      Or @Count2 > *Zeros;
+                         @Include = *Off;
+e005                  EndIf;
+e004               EndIf;
+                   *Inlr    = *On;
+                   Return;
+e003            EndIf;
+e002         EndIf;
+e001      EndIf;
+

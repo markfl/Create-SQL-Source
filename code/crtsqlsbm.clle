@@ -1,0 +1,17 @@
+             PGM        PARM(&DATABASE)
+
+             DCL        VAR(&DATABASE) TYPE(*CHAR) LEN(7)
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(TPSDTA50) +
+                          TODATABASE(&DATABASE)) JOB(TPSDTA50) +
+                          LOGCLPGM(*YES)
+
+             SBMJOB     CMD(CRTSQLALL LIBRARY(OS52RLDTA) +
+                          TODATABASE(&DATABASE)) JOB(OS52RLDTA) +
+                          LOGCLPGM(*YES)
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

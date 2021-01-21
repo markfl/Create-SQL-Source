@@ -1,0 +1,69 @@
+             PGM        PARM(&LIBRARY &DATABASE)
+
+             DCLF       FILE(QAFDBASI)
+
+             DCL        VAR(&LIBRARY) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&DATABASE) TYPE(*CHAR) LEN(7)
+
+             DCL        VAR(&DROPMBR) TYPE(*CHAR) LEN(10)
+             DCL        VAR(&CHECK) TYPE(*CHAR) +
+                          VALUE('ABCDEFGHIJKLMNOPQRSTUVWXYZ#012345678+
+                          90 ')
+
+             INCLUDE    SRCMBR(RCVMSGSRCD) SRCFILE(QCPYSRC)
+
+             DLTF       FILE(QTEMP/QAFDBASIN)
+             MONMSG     MSGID(CPF0000)
+
+             DSPFD      FILE(&LIBRARY/*ALL) TYPE(*BASATR) +
+                          OUTPUT(*OUTFILE) FILEATR(*PF) +
+                          OUTFILE(QTEMP/QAFDBASIN)
+             MONMSG     MSGID(CPF0000)
+
+             OVRDBF     FILE(QAFDBASI) TOFILE(QTEMP/QAFDBASIN)
+
+             RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* b01 */    DOWHILE    COND(&@MSGID *NE CPF0864)
+
+/* b02 */    IF         COND(%CHECK(&CHECK &ATFILE) *EQ 0) THEN(DO)
+
+/* b03 */    SELECT
+
+/* b04 */    WHEN       COND(%SST(&ATFILE 10 1) *EQ ' ') THEN(DO)
+             CHGVAR     VAR(&DROPMBR) VALUE(&ATFILE |< 'DRP')
+/* e04 */    ENDDO
+
+/* b04 */    WHEN       COND(%SST(&ATFILE 10 1) *EQ 'D') THEN(DO)
+             CHGVAR     VAR(&DROPMBR) VALUE(%SST(&ATFILE 1 9) |< '1')
+/* e04 */    ENDDO
+
+/* b04 */    WHEN       COND(%SST(&ATFILE 10 1) *NE ' ') THEN(DO)
+             CHGVAR     VAR(&DROPMBR) VALUE(%SST(&ATFILE 1 9) |< '2')
+/* e04 */    ENDDO
+/* e03 */    ENDSELECT
+
+             CRTSQL     FILE(&ATLIB/&ATFILE) TODATABASE(&DATABASE) +
+                          SRCMBR(&ATFILE) DROPMBR(&DROPMBR)
+
+             DLTSPLF    FILE(QPJOBLOG) SPLNBR(*LAST)
+             MONMSG     MSGID(CPF0000)
+
+/* e02 */    ENDDO
+
+ AGAIN:      RCVF
+             MONMSG     MSGID(CPF0000)
+             RCVMSG     MSGTYPE(*EXCP) MSGID(&@MSGID)
+
+/* e01 */    ENDDO
+
+             DLTOVR     FILE(*ALL)
+
+             DLTF       FILE(QTEMP/QAFDBASIN)
+             MONMSG     MSGID(CPF0000)
+
+             INCLUDE    SRCMBR(RCVMSGSRC) SRCFILE(QCPYSRC)
+
+             ENDPGM

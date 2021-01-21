@@ -1,0 +1,132 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+     Fqadspffd  ip   e             Disk
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          Dcl-Pi crtsqlsrc1;
+             @DataBase Char(7);
+             @#records Packed(10:0);
+             @Inc      Ind Options(*NoPass);
+          End-Pi;
+
+          /define crtsrcd01
+          /define crtsrcd04
+          /define crtsrcd08
+          /define crtsrcd10
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd04
+          /undefine crtsrcd08
+          /undefine crtsrcd10
+
+          Dcl-s @newFile Ind Inz(*Off);
+          Dcl-c @Specialc Const('@#$%&*_');
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+     Iqwhdrffd
+     I                                          whfile        l1
+
+          whfile = ConvertFieldName(whfile: @DataBase: 'FILENAME');
+          whflde = ConvertFieldName(whflde: @DataBase: 'FIELDNAME');
+
+b001      If *inl1;
+             @newFile = *On;
+             srcseq += .01;
+             srcdat = *Zeros;
+b002         If whftyp = 'P';
+b003            If  @DataBase = @MSSQL;
+                   srcseq += 1;
+                   srcdta = 'go';
+                   Write qsqlsrc @SourceDs;
+e003            EndIf;
+                @Inc = *On;
+                srcdta = 'create table ' + whfile;
+                Write qsqlsrc @SourceDs;
+                Clear srcdta;
+                srcdta = '(';
+                srcseq += .01;
+                Write qsqlsrc @SourceDs;
+                Clear srcdta;
+e002         EndIf;
+e001      EndIf;
+
+b001      If whftyp = 'P';
+             srcseq += .01;
+             srcdat = *Zeros;
+b002         If whfldd = *Zeros;
+b003            If not @newFile;
+                   srcdta = ',';
+e003            EndIf;
+b003            If  @DataBase = @Oracle;
+b004               If whfldb > 4000;
+                      srcdta = %Trim(srcdta) + %trimr(whflde) + ' long varchar';
+x004               Else;
+                      srcdta = %Trim(srcdta) + %trimr(whflde) + ' varchar2('
+                             + %Char(whfldb) + ')';
+e004               EndIf;
+x003            Else;
+                   srcdta = %Trim(srcdta) + %trimr(whflde) +
+                            ' char(' + %Char(whfldb) + ')';
+e003            EndIf;
+x002         Else;
+b003            If not @newFile;
+                   srcdta = ',';
+e003            EndIf;
+b003            If whfldp = *Zeros;
+b004               If  @DataBase = @Oracle;
+                      srcdta = %Trim(srcdta) + %trimr(whflde) +
+                               ' number(' + %Char(whfldd) + ',' +
+                               %Char(whfldp) + ')';
+x004               Else;
+                   // srcdta = %Trim(srcdta) + %trimr(whflde) + ' int';
+                      srcdta = %Trim(srcdta) + %trimr(whflde) +
+                               ' numeric(' + %Char(whfldd) + ',' +
+                               %Char(whfldp) + ')';
+e004               EndIf;
+x003            Else;
+b004               If  @DataBase = @Oracle;
+                      srcdta = %Trim(srcdta) + %trimr(whflde) +
+                               ' number(' + %Char(whfldd) + ',' +
+                               %Char(whfldp) + ')';
+x004               Else;
+                      srcdta = %Trim(srcdta) + %trimr(whflde) +
+                               ' numeric(' + %Char(whfldd) + ',' +
+                               %Char(whfldp) + ')';
+e004               EndIf;
+e003            EndIf;
+e002         EndIf;
+             @newFile = *Off;
+             Write qsqlsrc @SourceDs;
+             Clear srcdta;
+e001      EndIf;
+
+b001 Cl1                 If        whftyp = 'P'
+             Clear srcdta;
+             srcdta = ');';
+             srcseq += .01;
+             Write qsqlsrc @SourceDs;
+             Clear srcdta;
+e001      EndIf;                                           // If whftyp = 'P';
+b001 Cl1                 If        @DataBase = @Oracle
+             srcdta = ';';
+e001      EndIf;                                           // If @DataBase = @Oracle;
+     Cl1                 Eval      @#records = srcseq
+
+          BegSr *Inzsr;
+
+             @Inc = *Off;
+
+b001         If Not CheckRecordLength(@DataBase);
+                *Inlr = *On;
+                Return;
+e001         EndIf;
+
+b001         If @#Records < 9999;
+                srcseq = @#records;
+x001         Else;
+                srcseq = *Zeros;
+e001         EndIf;
+
+          EndSr;
+

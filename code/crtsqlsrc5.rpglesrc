@@ -1,0 +1,95 @@
+          Ctl-opt Option(*NoDebugIO) BndDir('MFLORES') DftActGrp(*No);
+
+     Fqafdbasi  ip   e             Disk
+          Dcl-f qafdaccp Usage(*Input);
+          Dcl-f qsqlsrc  Disk(112) Usage(*Output);
+
+          Dcl-Pi crtsqlsrc5;
+             @DataBase    Char(7)     Const;
+             @Action      Char(7)     Const;
+             @#records    Packed(10:0);
+             @SelectCount Packed(5:0) Const;
+          End-Pi;
+
+          Dcl-s @@Action     Like(@Action) Inz('table');
+          Dcl-s @Physical    Char(10)      Inz(*Blanks);
+          Dcl-c @Yes                       Const('Y');
+
+          Dcl-Ds @SourceDs ExtName('QSQLSRC') End-Ds;
+
+          /define mflores004
+          /copy qcpysrc,mflores
+          /undefine mflores004
+
+          /define crtsrcd01
+          /define crtsrcd08
+          /define crtsrcd10
+          /copy qcpysrc,crtsqlsrcd
+          /undefine crtsrcd01
+          /undefine crtsrcd08
+          /undefine crtsrcd10
+
+     Iqwhfdbas
+     I                                          atfile        l1
+
+b001      If *inl1;
+             Read qwhfdacp;
+             atfile = ConvertFieldName(atfile: @DataBase: 'FILENAME');
+             apbof  = ConvertFieldName(apbof:  @DataBase: 'FILENAME');
+             srcseq += 1;
+             srcdat = *Zeros;
+                srcdta = 'drop ' + %Trim(@@Action) + ' ' + %Trimr(atfile);
+b002            If  @DataBase = @MSSQL
+                And @Action   = '*INDEX';
+b003               If apftyp = 'L';
+b004                  If  apbof <> *Blanks;
+b005                     If @SelectCount > *Zeros
+                         Or atjoin       = @Yes;
+                            @Physical = %Trimr(atfile);
+x005                     Else;
+                            @Physical = %Trimr(apbof);
+e005                     EndIf;
+x004                  Else;
+                         @Physical = %Trimr(atfile);
+e004                  EndIf;
+x003               Else;
+                      @Physical = ConvertFieldName(atfile: @DataBase:
+                                                   'FILENAME');
+e003               EndIf;
+                   srcdta  = %Trim(srcdta) + ' on ' + %Trim(@Physical);
+e002            EndIf;
+b002            If @DataBase = @Oracle
+                Or @DataBase = @MySQL;
+                   srcdta  = %Trim(srcdta) + ';';
+e002            EndIf;
+                Write qsqlsrc @SourceDs;
+e001      EndIf;
+
+          @#records = srcseq;
+
+          BegSr *Inzsr;
+
+b001         If Not CheckRecordLength(@DataBase);
+                *Inlr = *On;
+                Return;
+e001         EndIf;
+
+b001         If @#Records < 9999;
+                srcseq = @#records;
+x001         Else;
+                srcseq = *Zeros;
+e001         EndIf;
+
+b001         If @Action <> '*DROP';
+b002            If @Action  = '*CREATE';
+                   @@Action = 'table';
+x002            Else;
+                   @@Action = %Subst(@Action:2:6);
+                   @@Action = @Tolower(@@Action);
+e002            EndIf;
+e001         EndIf;
+
+             Read qwhfdacp;
+
+          EndSr;
+
